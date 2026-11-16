@@ -138,6 +138,34 @@ public class DataSeeder implements ApplicationRunner {
             bolsinesDemo.add(extra);
         }
 
+        // Diez bolsines Enviado con destino Córdoba para probar el CU28 desde la interfaz.
+        // Contenido variado: 1 o 2 remitos con 1 a 4 documentos para cubrir A3, A4 y A5.
+        String[] areas = {"Mesa de Entradas", "Junta Médica", "Auditoría Médica", "Archivo Central"};
+        String[] asuntos = {"Determinación de Incapacidad", "Apelación Dictamen", "Revisión Homologación",
+                "Historia Clínica Complementaria", "Divergencia en el Alta", "Reagravamiento"};
+        int numeroRemito = 5101;
+        int numeroDoc = 9101;
+        for (int i = 1; i <= 10; i++) {
+            LocalDate fecha = LocalDate.now().minusDays(i % 3);
+            Bolsin prueba = new Bolsin(String.format("PRC-2026-%04d", 9200 + i), fecha,
+                    1200 + i, 1.5 + (i * 0.25), i % 2 == 0 ? cmRioCuarto : cmVillaMaria,
+                    cmCordoba, ayer);
+            int cantRemitos = i % 3 == 0 ? 2 : 1;
+            for (int r = 0; r < cantRemitos; r++) {
+                Remito remito = new Remito(fecha, numeroRemito++);
+                int cantDocs = 1 + ((i + r) % 4);
+                for (int d = 0; d < cantDocs; d++) {
+                    String asunto = String.format("%s - Expte %d/26",
+                            asuntos[numeroDoc % asuntos.length], 4600 + numeroDoc - 9100);
+                    remito.getDetalleRemito().add(new DetalleRemito(areas[(i + d) % areas.length],
+                            new Documentacion(asunto, fecha.minusDays(1), numeroDoc++,
+                                    d % 2 == 0 ? tipoExp : tipoDict, ayer)));
+                }
+                prueba.getRemitos().add(remito);
+            }
+            bolsinesDemo.add(prueba);
+        }
+
         bolsinRepo.saveAll(bolsinesDemo);
     }
 }
