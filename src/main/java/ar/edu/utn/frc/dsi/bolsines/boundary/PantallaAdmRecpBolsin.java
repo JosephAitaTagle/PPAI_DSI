@@ -26,6 +26,11 @@ public class PantallaAdmRecpBolsin {
         return gestor.selOpcRegRecpBolsin(precinto, origen);
     }
 
+    @GetMapping("/historial")
+    public Map<String, Object> historialBolsines() {
+        return Map.of("bolsines", gestor.historialBolsines());
+    }
+
     @PostMapping("/seleccionar-bolsin/{id}")
     public Map<String, Object> tomarSeleccionBolsin(@PathVariable Long id) {
         return gestor.tomarSeleccionBolsin(id);

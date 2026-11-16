@@ -58,6 +58,7 @@ public class Remito {
         this.estado.recibirYAceptar(fechaActual, nombre, opciones);
     }
 
+    public Long getId() { return id; }
     public Integer getNumero() { return numero; }
     public LocalDate getFecha() { return fecha; }
     public Estado getEstado() { return estado; }

@@ -36,6 +36,28 @@ public class GestorRecpBolsin {
                 "esCMC", cm.isEsCMC(), "bolsines", pendientes);
     }
 
+    public List<Map<String, Object>> historialBolsines() {
+        return bolsines.findAll().stream()
+                .sorted(Comparator.comparing(Bolsin::getId))
+                .map(b -> {
+                    List<Map<String, Object>> pasos = b.getCambioEstadoBolsin().stream()
+                            .sorted(Comparator.comparing(CambioEstadoBolsin::getFechaHoraInicio))
+                            .map(ce -> Map.<String, Object>of(
+                                    "cambioEstadoId", ce.getId(),
+                                    "estadoId", ce.getEstado().getId(),
+                                    "estado", ce.getEstado().getNombre(),
+                                    "claseEstado", ce.getEstado().getClass().getSimpleName(),
+                                    "inicio", ce.getFechaHoraInicio().toString(),
+                                    "fin", ce.getFechaHoraFin() == null ? "ACTUAL" : ce.getFechaHoraFin().toString(),
+                                    "responsable", ce.getEmpleado() == null ? "Sin registro previo" : ce.getEmpleado().getNombreCompleto()))
+                            .toList();
+                    return Map.<String, Object>of(
+                            "bolsinId", b.getId(), "numeroBolsin", b.getNumeroBolsin(),
+                            "precinto", b.getNumeroPrecinto(), "estadoActualId", b.getEstadoActual().getId(),
+                            "estadoActual", b.getEstadoActual().getNombre(), "pasos", pasos);
+                }).toList();
+    }
+
     private boolean contiene(String valor, String filtro) {
         return filtro == null || filtro.isBlank()
                 || valor.toLowerCase(Locale.ROOT).contains(filtro.trim().toLowerCase(Locale.ROOT));
@@ -79,7 +101,7 @@ public class GestorRecpBolsin {
                         "asunto", d.getAsunto(), "tipoDocumentacion", d.getTipoDoc().getNombre(),
                         "areaCMCDestino", det.getAreaCMCDestino(), "estadoActual", d.getEstadoActual().getNombre());
             }).toList();
-            remitos.add(Map.of("numero", r.getNumero(), "fecha", r.getFecha().toString(),
+            remitos.add(Map.of("id", r.getId(), "numero", r.getNumero(), "fecha", r.getFecha().toString(),
                     "estadoActual", r.getEstado().getNombre(), "documentaciones", docs));
         }
         return Map.of("bolsin", buscarDatosBolsin(bolsin), "remitos", remitos,
@@ -142,7 +164,8 @@ public class GestorRecpBolsin {
             Documentacion d = det.getDocumentacion();
             CambioEstadoDocumentacion actual = d.getCambioEstadoDocumentacion().stream()
                     .filter(CambioEstadoDocumentacion::sosActual).findFirst().orElseThrow();
-            docs.add(Map.of("numeroDoc", d.getNumero(), "asunto", d.getAsunto(),
+            docs.add(Map.of("documentacionId", d.getId(), "numeroDoc", d.getNumero(), "asunto", d.getAsunto(),
+                    "estadoId", d.getEstadoActual().getId(),
                     "nuevoEstado", d.getEstadoActual().getNombre(), "remitoEstado", r.getEstado().getNombre(),
                     "responsable", actual.getEmpleado().getNombreCompleto()));
         }

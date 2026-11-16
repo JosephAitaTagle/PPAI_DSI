@@ -1,6 +1,8 @@
 package ar.edu.utn.frc.dsi.bolsines.config;
 
 import ar.edu.utn.frc.dsi.bolsines.domain.*;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.*;
 import ar.edu.utn.frc.dsi.bolsines.repository.*;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
 
 @Component
 public class DataSeeder implements ApplicationRunner {
@@ -105,6 +108,36 @@ public class DataSeeder implements ApplicationRunner {
 
         Bolsin b4 = new Bolsin("PRC-2026-9999", LocalDate.now(), 2099, 4.00, cmVillaMaria, cmRioCuarto, ayer);
 
-        bolsinRepo.saveAll(List.of(b1, b2, b3, b4));
+        List<Bolsin> bolsinesDemo = new ArrayList<>(List.of(b1, b2, b3, b4));
+        // Quince bolsines adicionales con trazabilidad completa de la máquina de estados.
+        // Se destinan a Río Cuarto para conservar los tres casos CU28 de Córdoba sin alterarlos.
+        for (int i = 1; i <= 15; i++) {
+            LocalDate fecha = LocalDate.now().minusDays(15 - i);
+            LocalDateTime inicio = fecha.atTime(8, 0);
+            Bolsin extra = new Bolsin(String.format("PRC-2026-%04d", 9100 + i), fecha,
+                    1100 + i, 1.2 + (i * 0.1), i % 2 == 0 ? cmVillaMaria : cmCordoba,
+                    cmRioCuarto, inicio);
+            List<Estado> estados = new ArrayList<>();
+            List<LocalDateTime> fechas = new ArrayList<>();
+            estados.add(new CreadoBolsin(extra));
+            fechas.add(inicio);
+            estados.add(new CerradoBolsin(extra));
+            fechas.add(inicio.plusHours(1));
+            if (i >= 14) {
+                estados.add(new DeBajaBolsin(extra));
+                fechas.add(inicio.plusHours(2));
+            } else {
+                estados.add(new Enviado(extra));
+                fechas.add(inicio.plusHours(2));
+                if (i >= 11) {
+                    estados.add(new RecibidoEnCMDestino(extra));
+                    fechas.add(inicio.plusHours(5));
+                }
+            }
+            extra.cargarHistorialDemo(estados, fechas, emp);
+            bolsinesDemo.add(extra);
+        }
+
+        bolsinRepo.saveAll(bolsinesDemo);
     }
 }

@@ -83,6 +83,8 @@
             <button type="submit">Buscar</button>
         </form>
         <div id="lista-bolsines"></div>
+        <button type="button" onclick="cargarHistorial()">Ver historial de todos los bolsines</button>
+        <div id="historial-bolsines" class="hidden" style="margin-top:1rem"></div>
     </div>
 
     <div class="card hidden" id="panel-detalle">
@@ -157,7 +159,20 @@
             contenedor.innerHTML = `<table><thead><tr><th>N° Bolsín</th><th>Precinto</th><th>Fecha</th><th>CM Origen</th><th>Peso (kg)</th><th>Acción</th></tr></thead><tbody>
                 ${data.bolsines.map(b => `<tr><td>${b.numeroBolsin}</td><td>${escapar(b.numeroPrecinto)}</td>
                 <td>${escapar(b.fecha)}</td><td>${escapar(b.cmOrigen)}</td><td>${b.peso}</td>
-                <td><button onclick="seleccionarBolsin(${b.id})">Seleccionar</button></td></tr>`).join('')}</tbody></table>`;
+                <td><button onclick="seleccionarBolsin(${b.id})">Seleccionar · ID ${b.id}</button></td></tr>`).join('')}</tbody></table>`;
+        } catch (error) { mostrarError(error); }
+    }
+
+    async function cargarHistorial() {
+        const contenedor = document.getElementById('historial-bolsines');
+        try {
+            const data = await api('historial');
+            contenedor.innerHTML = `<h3>Historial de bolsines (${data.bolsines.length})</h3>` + data.bolsines.map(b =>
+                `<h4>Bolsín ID ${b.bolsinId} · N° ${b.numeroBolsin} · ${escapar(b.precinto)} · Estado actual: ${escapar(b.estadoActual)} (ID ${b.estadoActualId})</h4>
+                <table><thead><tr><th>ID cambio</th><th>ID estado</th><th>Clase estado</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Responsable</th></tr></thead><tbody>
+                ${b.pasos.map(p => `<tr><td>${p.cambioEstadoId}</td><td>${p.estadoId}</td><td>${escapar(p.claseEstado)}</td><td>${escapar(p.estado)}</td><td>${escapar(p.inicio)}</td><td>${escapar(p.fin)}</td><td>${escapar(p.responsable)}</td></tr>`).join('')}
+                </tbody></table>`).join('');
+            contenedor.classList.remove('hidden');
         } catch (error) { mostrarError(error); }
     }
 
@@ -169,11 +184,11 @@
             document.getElementById('panel-resultado').classList.add('hidden');
             document.getElementById('detalle-contenido').innerHTML = `<p><strong>Bolsín N° ${data.bolsin.numeroBolsin}</strong>
                 (Precinto: ${escapar(data.bolsin.numeroPrecinto)} — Origen: ${escapar(data.bolsin.cmOrigen)})</p>` +
-                data.remitos.map(r => `<div><h3>Remito N° ${r.numero}</h3>
-                <table><thead><tr><th>Afectado</th><th>N° Doc</th><th>Tipo</th><th>Asunto</th><th>Área CMC</th><th>Estado</th></tr></thead><tbody>
+                data.remitos.map(r => `<div><h3>Remito ID ${r.id} · N° ${r.numero}</h3>
+                <table><thead><tr><th>Afectado</th><th>ID doc</th><th>N° Doc</th><th>Tipo</th><th>Asunto</th><th>Área CMC</th><th>Estado</th></tr></thead><tbody>
                     ${r.documentaciones.map(d => `<tr><td><input type="checkbox" class="doc-afectado" value="${d.id}"
                         aria-label="Documento ${d.numero} afectado" onchange="invalidarConfirmacion()" disabled></td>
-                        <td>${d.numero}</td><td>${escapar(d.tipoDocumentacion)}</td><td>${escapar(d.asunto)}</td>
+                        <td>${d.id}</td><td>${d.numero}</td><td>${escapar(d.tipoDocumentacion)}</td><td>${escapar(d.asunto)}</td>
                         <td>${escapar(d.areaCMCDestino)}</td><td>${escapar(d.estadoActual)}</td></tr>`).join('')}
                 </tbody></table></div>`).join('');
             const opciones = [
@@ -234,8 +249,8 @@
                 <h3>Historial del bolsín</h3><table><thead><tr><th>Estado</th><th>Inicio</th><th>Fin</th><th>Responsable</th></tr></thead><tbody>
                 ${data.historialEstadosBolsin.map(h => `<tr><td>${escapar(h.estado)}</td><td>${escapar(h.inicio)}</td>
                     <td>${escapar(h.fin)}</td><td>${escapar(h.responsable)}</td></tr>`).join('')}</tbody></table>
-                <h3>Resultado por documento</h3><table><thead><tr><th>N° Doc</th><th>Asunto</th><th>Estado del remito</th><th>Estado del documento</th><th>Responsable</th></tr></thead><tbody>
-                ${data.documentacionesActualizadas.map(d => `<tr><td>${d.numeroDoc}</td><td>${escapar(d.asunto)}</td>
+                <h3>Resultado por documento</h3><table><thead><tr><th>ID doc</th><th>ID estado</th><th>N° Doc</th><th>Asunto</th><th>Estado del remito</th><th>Estado del documento</th><th>Responsable</th></tr></thead><tbody>
+                ${data.documentacionesActualizadas.map(d => `<tr><td>${d.documentacionId}</td><td>${d.estadoId}</td><td>${d.numeroDoc}</td><td>${escapar(d.asunto)}</td>
                     <td>${escapar(d.remitoEstado)}</td><td>${escapar(d.nuevoEstado)}</td><td>${escapar(d.responsable)}</td></tr>`).join('')}</tbody></table>`;
             document.getElementById('panel-resultado').classList.remove('hidden');
             await cargarListado();

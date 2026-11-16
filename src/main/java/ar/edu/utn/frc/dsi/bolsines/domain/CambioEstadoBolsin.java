@@ -42,6 +42,7 @@ public class CambioEstadoBolsin {
     }
 
     public Empleado getEmpleado() { return empleado; }
+    public Long getId() { return id; }
     public Estado getEstado() { return estado; }
     public LocalDateTime getFechaHoraInicio() { return fechaHoraInicio; }
     public LocalDateTime getFechaHoraFin() { return fechaHoraFin; }

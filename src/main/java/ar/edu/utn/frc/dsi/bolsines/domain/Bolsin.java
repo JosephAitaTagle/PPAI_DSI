@@ -95,6 +95,22 @@ public class Bolsin {
         this.cambioEstadoBolsin.add(cambioEstado);
     }
 
+    /** Carga una secuencia de estados de demostración manteniendo el estado activo y su historial alineados. */
+    public void cargarHistorialDemo(List<Estado> estados, List<LocalDateTime> fechas, Empleado empleado) {
+        if (estados == null || fechas == null || estados.isEmpty() || estados.size() != fechas.size()) {
+            throw new IllegalArgumentException("El historial de demostración requiere estados y fechas equivalentes");
+        }
+        this.cambioEstadoBolsin.clear();
+        for (int i = 0; i < estados.size(); i++) {
+            Estado estado = estados.get(i);
+            estado.vincularBolsin(this);
+            CambioEstadoBolsin cambio = new CambioEstadoBolsin(fechas.get(i), estado, empleado);
+            if (i + 1 < fechas.size()) cambio.setFechaHoraFin(fechas.get(i + 1));
+            this.cambioEstadoBolsin.add(cambio);
+        }
+        setEstado(estados.get(estados.size() - 1));
+    }
+
     public boolean esTuCmDestino(ComisionMedica cm) {
         return this.destino != null && cm != null && this.destino.getId().equals(cm.getId());
     }
