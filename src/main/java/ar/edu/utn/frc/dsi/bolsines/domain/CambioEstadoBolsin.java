@@ -15,8 +15,16 @@ public class CambioEstadoBolsin {
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = false)
     private Estado estado;
 
+    @ManyToOne
+    private Empleado empleado;
+
     protected CambioEstadoBolsin() {}
     public CambioEstadoBolsin(LocalDateTime fechaHoraInicio, Estado estado) {
+        this(fechaHoraInicio, estado, null);
+    }
+
+    public CambioEstadoBolsin(LocalDateTime fechaHoraInicio, Estado estado, Empleado empleado) {
+        this.empleado = empleado;
         this.fechaHoraInicio = fechaHoraInicio;
         this.estado = estado;
     }
@@ -33,6 +41,7 @@ public class CambioEstadoBolsin {
         this.fechaHoraFin = fechaHoraFin;
     }
 
+    public Empleado getEmpleado() { return empleado; }
     public Estado getEstado() { return estado; }
     public LocalDateTime getFechaHoraInicio() { return fechaHoraInicio; }
     public LocalDateTime getFechaHoraFin() { return fechaHoraFin; }

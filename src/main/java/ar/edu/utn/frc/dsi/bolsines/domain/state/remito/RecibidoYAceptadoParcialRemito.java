@@ -10,4 +10,6 @@ import jakarta.persistence.Entity;
 public class RecibidoYAceptadoParcialRemito extends Estado {
     public RecibidoYAceptadoParcialRemito() { super("RecibidoYAceptadoParcial", "Remito recibido con observaciones", "Remito"); }
     public RecibidoYAceptadoParcialRemito(Remito remito) { super("RecibidoYAceptadoParcial", "Remito recibido con observaciones", "Remito", remito); }
+    @Override
+    public boolean esRecibidoYAceptadoParcial() { return true; }
 }

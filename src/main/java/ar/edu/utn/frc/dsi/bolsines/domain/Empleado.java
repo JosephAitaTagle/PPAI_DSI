@@ -34,5 +34,6 @@ public class Empleado {
         return this.destino;
     }
 
+    public Long getId() { return id; }
     public String getNombreCompleto() { return apellido + ", " + nombre; }
 }

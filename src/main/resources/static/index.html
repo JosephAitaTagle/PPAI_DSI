@@ -77,6 +77,11 @@
 
     <div class="card" id="panel-bolsines">
         <h2>2. Bolsines en Estado "Enviado" pendientes de recepción</h2>
+        <form onsubmit="event.preventDefault(); cargarListado();" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <label>Precinto <input id="filtro-precinto" type="search"></label>
+            <label>CM origen <input id="filtro-origen" type="search"></label>
+            <button type="submit">Buscar</button>
+        </form>
         <div id="lista-bolsines"></div>
     </div>
 
@@ -86,6 +91,7 @@
 
         <h3 style="font-size: 1rem; margin-top: 1.25rem;">Seleccione el resultado de la verificación:</h3>
         <div id="opciones-recepcion"></div>
+        <p id="ayuda-documentos">El contenido completo se registrará como recibido y aceptado.</p>
 
         <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
             <button onclick="solicitarConfirmacion()">Continuar a Confirmación</button>
@@ -112,183 +118,145 @@
 </div>
 
 <script>
-    let opcionSeleccionada = null;
+    let bolsinSeleccionado = null;
+    let opcionSeleccionada = 'ACEPTAR';
+    let solicitudPendiente = null;
+
+    function escapar(valor) {
+        return String(valor).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
+    }
+
+    async function api(ruta, body) {
+        const res = await fetch('/api/cu28/' + ruta, body === undefined ? {} : {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo completar la operación');
+        return data;
+    }
+
+    function mostrarError(error) { alert(error.message); }
 
     async function iniciarCU28() {
-        ocultarPaneles();
-        const res = await fetch('/api/cu28/iniciar');
-        const data = await res.json();
+        cancelarOperacion();
+        document.getElementById('panel-resultado').classList.add('hidden');
+        await cargarListado();
+    }
 
-        document.getElementById('info-cm').innerHTML = `
-            <strong>Operador:</strong> ${data.empleado} &nbsp;|&nbsp;
-            <strong>Comisión Médica:</strong> <span class="badge">${data.nombreCM}</span>
-        `;
-
-        const contenedor = document.getElementById('lista-bolsines');
-        if (!data.bolsines || data.bolsines.length === 0) {
-            contenedor.innerHTML = `<div class="alert-info">
-                No existen bolsines en estado <strong>Enviado</strong> pendientes de recepción para ${data.nombreCM}. (Flujo Alternativo)
-            </div>`;
-            return;
-        }
-
-        let html = `<table>
-            <thead>
-                <tr>
-                    <th>N° Bolsín</th>
-                    <th>Precinto</th>
-                    <th>Fecha Envío</th>
-                    <th>CM Origen</th>
-                    <th>Peso (kg)</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
-                </tr>
-            </thead><tbody>`;
-
-        data.bolsines.forEach(b => {
-            html += `<tr>
-                <td><strong>#${b.numeroBolsin}</strong></td>
-                <td>${b.numeroPrecinto}</td>
-                <td>${b.fecha}</td>
-                <td>${b.cmOrigen}</td>
-                <td>${b.peso} kg</td>
-                <td><span class="badge">${b.estadoActual}</span></td>
-                <td><button onclick="seleccionarBolsin(${b.id})">Seleccionar</button></td>
-            </tr>`;
-        });
-        html += `</tbody></table>`;
-        contenedor.innerHTML = html;
+    async function cargarListado() {
+        try {
+            const filtros = new URLSearchParams({precinto: document.getElementById('filtro-precinto').value,
+                origen: document.getElementById('filtro-origen').value});
+            const data = await api('iniciar?' + filtros);
+            document.getElementById('info-cm').textContent = `Operador: ${data.empleado} | Comisión Médica: ${data.nombreCM}`;
+            const contenedor = document.getElementById('lista-bolsines');
+            if (!data.bolsines.length) {
+                contenedor.innerHTML = '<div class="alert-info">No se encontraron bolsines enviados para esta CM con los filtros indicados.</div>';
+                return;
+            }
+            contenedor.innerHTML = `<table><thead><tr><th>N° Bolsín</th><th>Precinto</th><th>Fecha</th><th>CM Origen</th><th>Peso (kg)</th><th>Acción</th></tr></thead><tbody>
+                ${data.bolsines.map(b => `<tr><td>${b.numeroBolsin}</td><td>${escapar(b.numeroPrecinto)}</td>
+                <td>${escapar(b.fecha)}</td><td>${escapar(b.cmOrigen)}</td><td>${b.peso}</td>
+                <td><button onclick="seleccionarBolsin(${b.id})">Seleccionar</button></td></tr>`).join('')}</tbody></table>`;
+        } catch (error) { mostrarError(error); }
     }
 
     async function seleccionarBolsin(id) {
-        const res = await fetch(`/api/cu28/seleccionar-bolsin/${id}`, { method: 'POST' });
-        const data = await res.json();
+        try {
+            const data = await api('seleccionar-bolsin/' + id, {});
+            cancelarOperacion();
+            bolsinSeleccionado = id;
+            document.getElementById('panel-resultado').classList.add('hidden');
+            document.getElementById('detalle-contenido').innerHTML = `<p><strong>Bolsín N° ${data.bolsin.numeroBolsin}</strong>
+                (Precinto: ${escapar(data.bolsin.numeroPrecinto)} — Origen: ${escapar(data.bolsin.cmOrigen)})</p>` +
+                data.remitos.map(r => `<div><h3>Remito N° ${r.numero}</h3>
+                <table><thead><tr><th>Afectado</th><th>N° Doc</th><th>Tipo</th><th>Asunto</th><th>Área CMC</th><th>Estado</th></tr></thead><tbody>
+                    ${r.documentaciones.map(d => `<tr><td><input type="checkbox" class="doc-afectado" value="${d.id}"
+                        aria-label="Documento ${d.numero} afectado" onchange="invalidarConfirmacion()" disabled></td>
+                        <td>${d.numero}</td><td>${escapar(d.tipoDocumentacion)}</td><td>${escapar(d.asunto)}</td>
+                        <td>${escapar(d.areaCMCDestino)}</td><td>${escapar(d.estadoActual)}</td></tr>`).join('')}
+                </tbody></table></div>`).join('');
+            const opciones = [
+                ['ACEPTAR', 'El contenido del bolsín es igual al registrado'],
+                ['DENEGAR', 'No se recibe toda la documentación: marque lo que no llegó'],
+                ['RECHAZAR', 'Existe documentación que no corresponde a la CM: marque esos documentos']
+            ];
+            // La elegibilidad también se valida en el servidor al confirmar.
+            const contexto = await api('iniciar');
+            if (contexto.esCMC) opciones.push(['REDIRIGIR', 'La documentación se debe redirigir a otra área: marque esos documentos']);
+            document.getElementById('opciones-recepcion').innerHTML = opciones.map(([codigo, etiqueta], i) =>
+                `<label class="option-item"><input type="radio" name="opcRec" value="${codigo}" ${i === 0 ? 'checked' : ''}
+                    onchange="cambiarOpcion(this.value)"> ${etiqueta}</label>`).join('');
+            cambiarOpcion('ACEPTAR');
+            document.getElementById('panel-detalle').classList.remove('hidden');
+        } catch (error) { cancelarOperacion(); mostrarError(error); }
+    }
 
-        let html = `<p><strong>Bolsín N° ${data.bolsin.numeroBolsin}</strong> (Precinto: ${data.bolsin.numeroPrecinto} — Origen: ${data.bolsin.cmOrigen})</p>`;
-
-        data.remitos.forEach(r => {
-            html += `<div style="margin-top:0.75rem; padding:0.75rem; background:#f8fafc; border-radius:6px; border:1px solid #e2e8f0;">
-                <strong>Remito N° ${r.numero}</strong> (${r.fecha}) — Estado: <span class="badge">${r.estadoActual}</span>
-                <table>
-                    <thead><tr><th>N° Doc</th><th>Tipo</th><th>Asunto</th><th>Área CMC</th><th>Estado Actual</th></tr></thead>
-                    <tbody>
-                        ${r.documentaciones.map(d => `<tr>
-                            <td>${d.numero}</td>
-                            <td>${d.tipoDocumentacion}</td>
-                            <td>${d.asunto}</td>
-                            <td>${d.areaCMCDestino}</td>
-                            <td><span class="badge">${d.estadoActual}</span></td>
-                        </tr>`).join('')}
-                    </tbody>
-                </table>
-            </div>`;
-        });
-
-        document.getElementById('detalle-contenido').innerHTML = html;
-
-        opcionSeleccionada = data.opcionesRecepcion[0].codigo;
-        document.getElementById('opciones-recepcion').innerHTML = data.opcionesRecepcion.map((op, idx) => `
-            <label class="option-item">
-                <input type="radio" name="opcRec" value="${op.codigo}" ${idx === 0 ? 'checked' : ''}
-                       onchange="opcionSeleccionada = this.value">
-                <strong>${op.codigo}:</strong> ${op.etiqueta}
-            </label>
-        `).join('');
-
-        document.getElementById('panel-detalle').classList.remove('hidden');
+    function invalidarConfirmacion() {
+        solicitudPendiente = null;
         document.getElementById('panel-confirmacion').classList.add('hidden');
-        document.getElementById('panel-resultado').classList.add('hidden');
+    }
+
+    function cambiarOpcion(opcion) {
+        opcionSeleccionada = opcion;
+        invalidarConfirmacion();
+        document.querySelectorAll('.doc-afectado').forEach(input => {
+            input.disabled = opcion === 'ACEPTAR';
+            input.checked = false;
+        });
+        document.getElementById('ayuda-documentos').textContent = opcion === 'ACEPTAR'
+            ? 'El contenido completo se registrará como recibido y aceptado.'
+            : 'Marque los documentos afectados. Los restantes se registrarán como recibidos y aceptados.';
     }
 
     async function solicitarConfirmacion() {
-        const res = await fetch('/api/cu28/seleccionar-opcion', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ opcion: opcionSeleccionada })
-        });
-        const data = await res.json();
-
-        document.getElementById('texto-confirmacion').textContent = data.mensajeConfirmacion;
-        document.getElementById('panel-confirmacion').classList.remove('hidden');
+        const solicitud = {bolsinId: bolsinSeleccionado, opcion: opcionSeleccionada,
+            documentosAfectados: [...document.querySelectorAll('.doc-afectado:checked')].map(input => Number(input.value))};
+        try {
+            const data = await api('seleccionar-opcion', solicitud);
+            solicitudPendiente = solicitud;
+            document.getElementById('texto-confirmacion').textContent = data.mensajeConfirmacion;
+            document.getElementById('panel-confirmacion').classList.remove('hidden');
+        } catch (error) { mostrarError(error); }
     }
 
     async function confirmarRecepcion() {
-        const res = await fetch('/api/cu28/confirmar', { method: 'POST' });
-        const data = await res.json();
-
-        if (!res.ok) {
-            alert(data.error);
-            return;
-        }
-
-        let html = `<div class="alert-success">
-            <strong>${data.mensaje}</strong><br>
-            <small>Fecha/Hora registro: ${data.fechaHoraRegistro} | Invocación CU 29: ${data.cu29Llamado ? 'Ejecutada' : 'No requerida'}</small>
-        </div>`;
-
-        html += `<h3 style="font-size:0.95rem; margin-top:1rem;">Historial CambioEstadoBolsin (Persistido en SQLite)</h3>
-        <table>
-            <thead><tr><th>Estado</th><th>Fecha/Hora Inicio</th><th>Fecha/Hora Fin</th></tr></thead>
-            <tbody>
-                ${data.historialEstadosBolsin.map(h => `<tr>
-                    <td><span class="badge ${h.fin === 'ACTUAL' ? 'badge-success' : ''}">${h.estado}</span></td>
-                    <td>${h.inicio}</td>
-                    <td>${h.fin}</td>
-                </tr>`).join('')}
-            </tbody>
-        </table>`;
-
-        html += `<h3 style="font-size:0.95rem; margin-top:1rem;">Estados Finales de Remito y Documentación</h3>
-        <table>
-            <thead><tr><th>N° Doc</th><th>Asunto</th><th>Estado Remito</th><th>Nuevo Estado Documentación</th></tr></thead>
-            <tbody>
-                ${data.documentacionesActualizadas.map(d => `<tr>
-                    <td>${d.numeroDoc}</td>
-                    <td>${d.asunto}</td>
-                    <td><span class="badge badge-success">${d.remitoEstado}</span></td>
-                    <td><span class="badge badge-success">${d.nuevoEstado}</span></td>
-                </tr>`).join('')}
-            </tbody>
-        </table>`;
-
-        document.getElementById('resultado-contenido').innerHTML = html;
-        ocultarPaneles();
-        document.getElementById('panel-resultado').classList.remove('hidden');
-        iniciarCU28RefrescarTabla();
+        if (!solicitudPendiente) return;
+        const solicitud = solicitudPendiente;
+        invalidarConfirmacion();
+        try {
+            const data = await api('confirmar', solicitud);
+            cancelarOperacion();
+            const notificacion = data.notificacion;
+            document.getElementById('resultado-contenido').innerHTML = `<div class="alert-success">
+                <strong>${escapar(data.mensaje)}</strong><br>Fecha: ${escapar(data.fechaHoraRegistro)}</div>
+                <p>Notificación al origen (${escapar(notificacion.destinatario)}): guardada, pendiente de envío por correo.</p>
+                <h3>Historial del bolsín</h3><table><thead><tr><th>Estado</th><th>Inicio</th><th>Fin</th><th>Responsable</th></tr></thead><tbody>
+                ${data.historialEstadosBolsin.map(h => `<tr><td>${escapar(h.estado)}</td><td>${escapar(h.inicio)}</td>
+                    <td>${escapar(h.fin)}</td><td>${escapar(h.responsable)}</td></tr>`).join('')}</tbody></table>
+                <h3>Resultado por documento</h3><table><thead><tr><th>N° Doc</th><th>Asunto</th><th>Estado del remito</th><th>Estado del documento</th><th>Responsable</th></tr></thead><tbody>
+                ${data.documentacionesActualizadas.map(d => `<tr><td>${d.numeroDoc}</td><td>${escapar(d.asunto)}</td>
+                    <td>${escapar(d.remitoEstado)}</td><td>${escapar(d.nuevoEstado)}</td><td>${escapar(d.responsable)}</td></tr>`).join('')}</tbody></table>`;
+            document.getElementById('panel-resultado').classList.remove('hidden');
+            await cargarListado();
+        } catch (error) { mostrarError(error); }
     }
 
-    async function iniciarCU28RefrescarTabla() {
-        const res = await fetch('/api/cu28/iniciar');
-        const data = await res.json();
-        const contenedor = document.getElementById('lista-bolsines');
-        if (!data.bolsines || data.bolsines.length === 0) {
-            contenedor.innerHTML = `<div class="alert-info">No quedan bolsines pendientes en estado <strong>Enviado</strong>.</div>`;
-        } else {
-            let html = `<table><thead><tr><th>N° Bolsín</th><th>Precinto</th><th>Fecha Envío</th><th>CM Origen</th><th>Peso</th><th>Estado</th><th>Acción</th></tr></thead><tbody>`;
-            data.bolsines.forEach(b => {
-                html += `<tr><td><strong>#${b.numeroBolsin}</strong></td><td>${b.numeroPrecinto}</td><td>${b.fecha}</td><td>${b.cmOrigen}</td><td>${b.peso} kg</td><td><span class="badge">${b.estadoActual}</span></td><td><button onclick="seleccionarBolsin(${b.id})">Seleccionar</button></td></tr>`;
-            });
-            contenedor.innerHTML = html + `</tbody></table>`;
-        }
-    }
-
-    function volverAOpciones() {
-        document.getElementById('panel-confirmacion').classList.add('hidden');
-    }
+    function volverAOpciones() { invalidarConfirmacion(); }
 
     function cancelarOperacion() {
-        ocultarPaneles();
-    }
-
-    function ocultarPaneles() {
+        // La selección pertenece a esta pestaña. Sin confirmar, no se escribe nada en el servidor.
+        invalidarConfirmacion();
+        bolsinSeleccionado = null;
+        opcionSeleccionada = 'ACEPTAR';
         document.getElementById('panel-detalle').classList.add('hidden');
-        document.getElementById('panel-confirmacion').classList.add('hidden');
     }
 
     async function resetDemo() {
-        await fetch('/api/cu28/reset-demo', { method: 'POST' });
-        document.getElementById('panel-resultado').classList.add('hidden');
-        iniciarCU28();
+        try {
+            await api('reset-demo', {});
+            await iniciarCU28();
+        } catch (error) { mostrarError(error); }
     }
 
     window.onload = iniciarCU28;

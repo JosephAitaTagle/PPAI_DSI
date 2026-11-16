@@ -20,14 +20,17 @@ public class EnBolsinEnviadoRemito extends Estado {
 
     // Secuencia 1.3.1.7.1 -> 1.3.1.7.1.5 sobre la referencia inversa this.remito
     @Override
-    public void recibirYAceptar(LocalDateTime fechaActual, Empleado nombre, String opcionRecepcion) {
-        // 1.3.1.7.1.1 -> 1.3.1.7.1.2: crearEstadoRem(): RecibidoYAceptado
-        RecibidoYAceptadoRemito nuevoEstadoRem = crearEstadoRem();
+    public void recibirYAceptar(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
+        // Crear el estado de recepción del remito según sus documentos.
+        boolean hayFaltantes = this.remito.getDetalleRemito().stream()
+                .anyMatch(d -> opciones.get(d.getDocumentacion().getId()) == OpcionRecepcion.DENEGAR);
+        Estado nuevoEstadoRem = hayFaltantes
+                ? new RecibidoYAceptadoParcialRemito(this.remito) : crearEstadoRem();
 
         // 1.3.1.7.1.3: cambiarEstadoDocumentacion(fechaActual: DateTime)
-        cambiarEstadoDocumentacion(fechaActual, nombre, opcionRecepcion);
+        cambiarEstadoDocumentacion(fechaActual, nombre, opciones);
 
-        // 1.3.1.7.1.5: setEstado(estado: RecibidoYAceptado)
+        // Mantener la recepción parcial cuando hay documentación faltante.
         this.remito.setEstado(nuevoEstadoRem);
     }
 
@@ -35,9 +38,9 @@ public class EnBolsinEnviadoRemito extends Estado {
         return new RecibidoYAceptadoRemito(this.remito);
     }
 
-    public void cambiarEstadoDocumentacion(LocalDateTime fechaActual, Empleado nombre, String opcionRecepcion) {
+    public void cambiarEstadoDocumentacion(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
         for (DetalleRemito detalle : this.remito.getDetalleRemito()) {
-            detalle.procesarRecepcion(fechaActual, nombre, opcionRecepcion);
+            detalle.procesarRecepcion(fechaActual, nombre, opciones.get(detalle.getDocumentacion().getId()));
         }
     }
 }

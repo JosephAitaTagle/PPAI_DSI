@@ -26,6 +26,7 @@ public class ComisionMedica {
 
     public Long getId() { return id; }
     public String getNombre() { return nombre; }
+    public String getEmail() { return email; }
     public String getCodigo() { return codigo; }
     public boolean isEsCMC() { return esCMC; }
 }

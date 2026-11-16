@@ -13,6 +13,9 @@ public class Bolsin {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
     private String numeroPrecinto;
     private LocalDate fecha;
     private Integer numeroBolsin;
@@ -25,7 +28,7 @@ public class Bolsin {
     private ComisionMedica destino;
 
     // Referencia directa al estado activo (field state: State)
-    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = false)
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private Estado estado;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
@@ -72,13 +75,12 @@ public class Bolsin {
         setEstado(nuevoEstado);
     }
 
-    // Delegación pura al estado activo
-    public void recibirYAceptarBolsin() {
-        recibirYAceptarBolsin(LocalDateTime.now(), null, "ACEPTAR");
-    }
-
-    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado nombre, String opcionRecepcion) {
-        this.estado.recibirYAceptarBolsin(fechaActual, nombre, opcionRecepcion);
+    // Se vincula también al invocar: las bases antiguas compartían filas de estados.
+    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado empleado,
+                                      java.util.Map<Long, OpcionRecepcion> opciones) {
+        Estado actual = getEstadoActual();
+        actual.vincularBolsin(this);
+        actual.recibirYAceptarBolsin(fechaActual, empleado, opciones);
     }
 
     // Métodos de servicio del contexto invocados por los estados concretos
@@ -102,6 +104,7 @@ public class Bolsin {
     }
 
     public Estado getEstadoActual() {
+        if (this.estado == null) throw new IllegalStateException("Falta el estado activo de la entidad");
         return this.estado;
     }
 

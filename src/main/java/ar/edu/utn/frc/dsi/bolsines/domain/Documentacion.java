@@ -13,6 +13,9 @@ public class Documentacion {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
     private String asunto;
     private LocalDate fechaPase;
     private Integer numero;
@@ -21,7 +24,7 @@ public class Documentacion {
     private TipoDocumentacion tipoDocumentacion;
 
     // Referencia directa al estado activo (field state: State)
-    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = false)
+    @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private Estado estado;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
@@ -64,19 +67,27 @@ public class Documentacion {
 
     // Delegación pura al estado activo según la Máquina de Estados de Documentación
     public void aceptar(LocalDateTime fechaActual, Empleado nombre) {
-        this.estado.aceptar(fechaActual, nombre);
+        Estado actual = getEstadoActual();
+        actual.vincularDocumentacion(this);
+        actual.aceptar(fechaActual, nombre);
     }
 
     public void denegar(LocalDateTime fechaActual, Empleado nombre) {
-        this.estado.denegar(fechaActual, nombre);
+        Estado actual = getEstadoActual();
+        actual.vincularDocumentacion(this);
+        actual.denegar(fechaActual, nombre);
     }
 
     public void rechazar(LocalDateTime fechaActual, Empleado nombre) {
-        this.estado.rechazar(fechaActual, nombre);
+        Estado actual = getEstadoActual();
+        actual.vincularDocumentacion(this);
+        actual.rechazar(fechaActual, nombre);
     }
 
     public void redirigir(LocalDateTime fechaActual, Empleado nombre) {
-        this.estado.redirigir(fechaActual, nombre);
+        Estado actual = getEstadoActual();
+        actual.vincularDocumentacion(this);
+        actual.redirigir(fechaActual, nombre);
     }
 
     // Métodos de servicio del contexto invocados por los estados concretos
@@ -92,6 +103,7 @@ public class Documentacion {
     }
 
     public Estado getEstadoActual() {
+        if (this.estado == null) throw new IllegalStateException("Falta el estado activo de la entidad");
         return this.estado;
     }
 

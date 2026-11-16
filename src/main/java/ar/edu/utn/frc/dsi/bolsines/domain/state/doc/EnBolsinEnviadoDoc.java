@@ -67,6 +67,6 @@ public class EnBolsinEnviadoDoc extends Estado {
     }
 
     public CambioEstadoDocumentacion crearCambioEstadoDocumentacion(LocalDateTime fechaActual, Estado estado, Empleado nombre) {
-        return new CambioEstadoDocumentacion(fechaActual, estado);
+        return new CambioEstadoDocumentacion(fechaActual, estado, nombre);
     }
 }

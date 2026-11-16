@@ -60,6 +60,7 @@ public abstract class Estado {
     public boolean esEnviado() { return false; }
     public boolean esRecibido() { return false; }
     public boolean esRecibidoYAceptado() { return false; }
+    public boolean esRecibidoYAceptadoParcial() { return false; }
     public boolean esRecibidoYAceptada() { return false; }
     public boolean esNoRecibida() { return false; }
     public boolean esRecibidaYRechazada() { return false; }
@@ -70,11 +71,11 @@ public abstract class Estado {
     public boolean esAmbitoDocumentacion() { return "Documentacion".equalsIgnoreCase(this.ambito); }
 
     // Operaciones del ciclo de vida del CU 28 (operan sobre la referencia inversa)
-    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado nombre, String opcionRecepcion) {
+    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
         throw new UnsupportedOperationException("Transición recibirYAceptarBolsin no permitida en estado: " + this.nombre);
     }
 
-    public void recibirYAceptar(LocalDateTime fechaActual, Empleado nombre, String opcionRecepcion) {
+    public void recibirYAceptar(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
         throw new UnsupportedOperationException("Transición recibirYAceptar no permitida en estado: " + this.nombre);
     }
 

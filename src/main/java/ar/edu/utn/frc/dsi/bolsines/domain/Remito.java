@@ -53,12 +53,9 @@ public class Remito {
     }
 
     // Delegación pura al estado activo
-    public void recibir() {
-        recibir(LocalDateTime.now(), null, "ACEPTAR");
-    }
-
-    public void recibir(LocalDateTime fechaActual, Empleado nombre, String opcionRecepcion) {
-        this.estado.recibirYAceptar(fechaActual, nombre, opcionRecepcion);
+    public void recibir(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
+        this.estado.vincularRemito(this);
+        this.estado.recibirYAceptar(fechaActual, nombre, opciones);
     }
 
     public Integer getNumero() { return numero; }

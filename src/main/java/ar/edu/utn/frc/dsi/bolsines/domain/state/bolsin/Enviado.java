@@ -25,7 +25,7 @@ public class Enviado extends Estado {
 
     // Secuencia 1.3.1 -> 1.3.1.9 sobre la referencia inversa this.bolsin
     @Override
-    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado nombre, String opcionRecepcion) {
+    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
         // 1.3.1.1 -> 1.3.1.2: Cierra CambioEstadoBolsin actual en el contexto
         cambiarEstadoBolsin(fechaActual, this);
 
@@ -33,11 +33,11 @@ public class Enviado extends Estado {
         RecibidoEnCMDestino nuevoEstado = crearEstado();
 
         // 1.3.1.5 -> 1.3.1.6: crearCambioEstadoBolsin(fechaActual, estadoActual)
-        CambioEstadoBolsin nuevoCambio = crearCambioEstadoBolsin(fechaActual, nuevoEstado);
+        CambioEstadoBolsin nuevoCambio = crearCambioEstadoBolsin(fechaActual, nuevoEstado, nombre);
 
         // 1.3.1.7: loop [Mientras haya remitos] -> recibir()
         for (Remito remito : this.bolsin.getRemitos()) {
-            remito.recibir(fechaActual, nombre, opcionRecepcion);
+            remito.recibir(fechaActual, nombre, opciones);
         }
 
         // 1.3.1.8: setEstado(estado: RecibidoEnCMDestino)
@@ -55,7 +55,7 @@ public class Enviado extends Estado {
         return new RecibidoEnCMDestino(this.bolsin);
     }
 
-    public CambioEstadoBolsin crearCambioEstadoBolsin(LocalDateTime fechaActual, Estado estadoActual) {
-        return new CambioEstadoBolsin(fechaActual, estadoActual);
+    public CambioEstadoBolsin crearCambioEstadoBolsin(LocalDateTime fechaActual, Estado estadoActual, Empleado empleado) {
+        return new CambioEstadoBolsin(fechaActual, estadoActual, empleado);
     }
 }

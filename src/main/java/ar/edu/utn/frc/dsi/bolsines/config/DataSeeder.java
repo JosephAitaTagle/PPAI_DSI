@@ -35,6 +35,13 @@ public class DataSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        // Migración no destructiva desde la adaptación anterior (estado solo en el historial).
+        em.createQuery("UPDATE Bolsin b SET b.version = 0 WHERE b.version IS NULL").executeUpdate();
+        em.createQuery("UPDATE Documentacion d SET d.version = 0 WHERE d.version IS NULL").executeUpdate();
+        em.createNativeQuery("UPDATE bolsin SET estado_id = (SELECT estado_id FROM cambio_estado_bolsin "
+                + "WHERE bolsin_id = bolsin.id AND fecha_hora_fin IS NULL) WHERE estado_id IS NULL").executeUpdate();
+        em.createNativeQuery("UPDATE documentacion SET estado_id = (SELECT estado_id FROM cambio_estado_documentacion "
+                + "WHERE documentacion_id = documentacion.id AND fecha_hora_fin IS NULL) WHERE estado_id IS NULL").executeUpdate();
         if (bolsinRepo.count() == 0) {
             cargarDatosIniciales();
         }
@@ -42,13 +49,18 @@ public class DataSeeder implements ApplicationRunner {
 
     @Transactional
     public void cargarDatosIniciales() {
+        em.createQuery("DELETE FROM NotificacionRecepcion").executeUpdate();
         bolsinRepo.deleteAll();
         sesionRepo.deleteAll();
         empleadoRepo.deleteAll();
+        em.flush();
+        em.clear();
         em.createQuery("DELETE FROM Usuario").executeUpdate();
         em.createQuery("DELETE FROM ComisionMedica").executeUpdate();
         em.createQuery("DELETE FROM TipoDocumentacion").executeUpdate();
         estadoRepo.deleteAll();
+        em.flush();
+        em.clear();
 
         ComisionMedica cmCordoba = new ComisionMedica("CM N° 05 - Córdoba (CMC)", "CM05", "Bv. Chacabuco 450", "cm05@srt.gob.ar", "0351-4221100", true);
         ComisionMedica cmVillaMaria = new ComisionMedica("CM N° 06 - Villa María", "CM06", "San Martín 310", "cm06@srt.gob.ar", "0353-4520011", false);

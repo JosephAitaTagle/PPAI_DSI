@@ -19,12 +19,12 @@ public class DetalleRemito {
         this.documentacion = documentacion;
     }
 
-    public void procesarRecepcion(LocalDateTime fechaActual, Empleado nombre, String opcionRecepcion) {
+    public void procesarRecepcion(LocalDateTime fechaActual, Empleado nombre, OpcionRecepcion opcionRecepcion) {
         switch (opcionRecepcion) {
-            case "ACEPTAR"   -> this.documentacion.aceptar(fechaActual, nombre);
-            case "DENEGAR"   -> this.documentacion.denegar(fechaActual, nombre);
-            case "RECHAZAR"  -> this.documentacion.rechazar(fechaActual, nombre);
-            case "REDIRIGIR" -> this.documentacion.redirigir(fechaActual, nombre);
+            case ACEPTAR   -> this.documentacion.aceptar(fechaActual, nombre);
+            case DENEGAR   -> this.documentacion.denegar(fechaActual, nombre);
+            case RECHAZAR  -> this.documentacion.rechazar(fechaActual, nombre);
+            case REDIRIGIR -> this.documentacion.redirigir(fechaActual, nombre);
             default -> throw new IllegalArgumentException("Opción de recepción desconocida: " + opcionRecepcion);
         }
     }
