@@ -1,20 +1,36 @@
 package ar.edu.utn.frc.dsi.bolsines.config;
 
-import ar.edu.utn.frc.dsi.bolsines.domain.*;
-import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
-import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.*;
-import ar.edu.utn.frc.dsi.bolsines.repository.*;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.ArrayList;
+import ar.edu.utn.frc.dsi.bolsines.domain.Bolsin;
+import ar.edu.utn.frc.dsi.bolsines.domain.ComisionMedica;
+import ar.edu.utn.frc.dsi.bolsines.domain.DetalleRemito;
+import ar.edu.utn.frc.dsi.bolsines.domain.Documentacion;
+import ar.edu.utn.frc.dsi.bolsines.domain.Empleado;
+import ar.edu.utn.frc.dsi.bolsines.domain.Remito;
+import ar.edu.utn.frc.dsi.bolsines.domain.Sesion;
+import ar.edu.utn.frc.dsi.bolsines.domain.TipoDocumentacion;
+import ar.edu.utn.frc.dsi.bolsines.domain.Usuario;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.CerradoBolsin;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.CreadoBolsin;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.DeBajaBolsin;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.Enviado;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.RecibidoEnCMDestino;
+import ar.edu.utn.frc.dsi.bolsines.repository.BolsinRepository;
+import ar.edu.utn.frc.dsi.bolsines.repository.EmpleadoRepository;
+import ar.edu.utn.frc.dsi.bolsines.repository.EstadoRepository;
+import ar.edu.utn.frc.dsi.bolsines.repository.SesionRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 @Component
 public class DataSeeder implements ApplicationRunner {

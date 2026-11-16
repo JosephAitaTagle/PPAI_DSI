@@ -103,18 +103,28 @@ class RecepcionBolsinTest {
         assertTrue(notificaciones.findAll().get(0).getCuerpo().contains("NoRecibida"));
     }
 
-    @Test void rechazoNoRechazaDocumentosCorrectos() {
+    @Test void rechazoNoRechazaDocumentosCorrectosYDejaRemitoParcial() {
         Long id = bolsin(1042); var docs = documentos(id);
         gestor.tomarConfirmacion(solicitud(id, OpcionRecepcion.RECHAZAR, docs.get(0)));
         assertEquals("RecibidaYRechazada", estadoDoc(docs.get(0)));
         assertEquals("RecibidaYAceptada", estadoDoc(docs.get(1)));
+        assertEquals("RecibidoYAceptadoParcial", estadoRemito(id));
     }
 
-    @Test void redirigirSoloDocumentosSeleccionadosEnCMC() {
+    @Test void redirigirSoloDocumentosSeleccionadosEnCMCYDejaRemitoParcial() {
         Long id = bolsin(1042); var docs = documentos(id);
         gestor.tomarConfirmacion(solicitud(id, OpcionRecepcion.REDIRIGIR, docs.get(1)));
         assertEquals("RecibidaYAceptada", estadoDoc(docs.get(0)));
         assertEquals("ParaRedirigir", estadoDoc(docs.get(1)));
+        assertEquals("RecibidoYAceptadoParcial", estadoRemito(id));
+    }
+
+    @Test void rechazoDeTodaLaDocumentacionDejaRemitoRechazado() {
+        Long id = bolsin(1042); var docs = documentos(id);
+        gestor.tomarConfirmacion(solicitud(id, OpcionRecepcion.RECHAZAR, docs.toArray(Long[]::new)));
+        assertEquals("RecibidaYRechazada", estadoDoc(docs.get(0)));
+        assertEquals("RecibidaYRechazada", estadoDoc(docs.get(1)));
+        assertEquals("RecibidoYRechazado", estadoRemito(id));
     }
 
     @Test void cmNoCentralNoPuedeRedirigirAunqueManipuleLaSolicitud() {

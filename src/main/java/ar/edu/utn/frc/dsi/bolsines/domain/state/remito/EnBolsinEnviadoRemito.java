@@ -21,16 +21,24 @@ public class EnBolsinEnviadoRemito extends Estado {
     // Secuencia 1.3.1.7.1 -> 1.3.1.7.1.5 sobre la referencia inversa this.remito
     @Override
     public void recibirYAceptar(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
-        // Crear el estado de recepción del remito según sus documentos.
-        boolean hayFaltantes = this.remito.getDetalleRemito().stream()
-                .anyMatch(d -> opciones.get(d.getDocumentacion().getId()) == OpcionRecepcion.DENEGAR);
-        Estado nuevoEstadoRem = hayFaltantes
-                ? new RecibidoYAceptadoParcialRemito(this.remito) : crearEstadoRem();
+        // Crear el estado de recepción del remito según el resultado individual de sus documentos:
+        // todos aceptados -> aceptado; todos rechazados (no corresponden al destino) -> rechazado;
+        // cualquier otra mezcla de resultados -> parcial.
+        java.util.List<OpcionRecepcion> resultados = this.remito.getDetalleRemito().stream()
+                .map(d -> opciones.get(d.getDocumentacion().getId())).toList();
+        Estado nuevoEstadoRem;
+        if (resultados.stream().allMatch(o -> o == OpcionRecepcion.ACEPTAR)) {
+            nuevoEstadoRem = crearEstadoRem();
+        } else if (resultados.stream().allMatch(o -> o == OpcionRecepcion.RECHAZAR)) {
+            nuevoEstadoRem = new RecibidoYRechazadoRemito(this.remito);
+        } else {
+            nuevoEstadoRem = new RecibidoYAceptadoParcialRemito(this.remito);
+        }
 
         // 1.3.1.7.1.3: cambiarEstadoDocumentacion(fechaActual: DateTime)
         cambiarEstadoDocumentacion(fechaActual, nombre, opciones);
 
-        // Mantener la recepción parcial cuando hay documentación faltante.
+        // Mantener la recepción parcial o rechazada cuando corresponda.
         this.remito.setEstado(nuevoEstadoRem);
     }
 

@@ -37,6 +37,22 @@
             font-size: 0.8rem; font-weight: 600; background: var(--primary-light); color: var(--primary);
         }
         .badge-success { background: var(--success-bg); color: var(--success); }
+        .badge-warning { background: #fef3c7; color: var(--warning); }
+        .badge-danger { background: #fee2e2; color: #b91c1c; }
+        .badge-neutral { background: #e2e8f0; color: #334155; }
+        .remito-block {
+            border: 1px solid var(--border); border-radius: 8px; margin: 0.9rem 0;
+            overflow: hidden; background: #fcfdfe;
+        }
+        .remito-block__header {
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;
+            padding: 0.6rem 0.9rem; background: #f1f5f9; border-bottom: 1px solid var(--border);
+        }
+        .remito-block__header strong { color: var(--primary); }
+        .remito-block table { margin: 0; border: none; }
+        .remito-block table th, .remito-block table td { border-left: none; border-right: none; }
+        .remito-block table tr:last-child td { border-bottom: none; }
+        .remito-block > table { margin: 0.6rem 0.9rem 0.9rem; width: calc(100% - 1.8rem); }
         table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; font-size: 0.92rem; }
         th, td { border: 1px solid #e2e8f0; padding: 0.65rem; text-align: left; }
         th { background: #f1f5f9; font-weight: 600; }
@@ -128,6 +144,34 @@
         return String(valor).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
     }
 
+    const ESTADOS_OK = new Set(['RecibidoYAceptado', 'RecibidaYAceptada']);
+    const ESTADOS_ALERTA = new Set(['RecibidoYAceptadoParcial', 'ParaRedirigir']);
+    const ESTADOS_NEGATIVOS = new Set(['Cancelado', 'RecibidaYRechazada', 'RecibidoYRechazado', 'DeBaja', 'NoRecibida']);
+
+    function claseBadgeEstado(nombreEstado) {
+        if (ESTADOS_OK.has(nombreEstado)) return 'badge-success';
+        if (ESTADOS_ALERTA.has(nombreEstado)) return 'badge-warning';
+        if (ESTADOS_NEGATIVOS.has(nombreEstado)) return 'badge-danger';
+        return 'badge-neutral';
+    }
+
+    function badgeEstado(nombreEstado) {
+        return `<span class="badge ${claseBadgeEstado(nombreEstado)}">${escapar(nombreEstado)}</span>`;
+    }
+
+    // Agrupa una lista plana de filas de documentación en bloques visuales, uno por remito,
+    // para separar claramente la trazabilidad de cada remito de la de los demás.
+    function bloqueRemito({ titulo, estado, extra = '' }, filasHtml) {
+        return `<div class="remito-block">
+            <div class="remito-block__header">
+                <strong>${escapar(titulo)}</strong>
+                <span>${badgeEstado(estado)}</span>
+            </div>
+            ${extra}
+            ${filasHtml}
+        </div>`;
+    }
+
     async function api(ruta, body) {
         const res = await fetch('/api/cu28/' + ruta, body === undefined ? {} : {
             method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
@@ -168,10 +212,13 @@
         try {
             const data = await api('historial');
             contenedor.innerHTML = `<h3>Historial de bolsines (${data.bolsines.length})</h3>` + data.bolsines.map(b =>
-                `<h4>Bolsín ID ${b.bolsinId} · N° ${b.numeroBolsin} · ${escapar(b.precinto)} · Estado actual: ${escapar(b.estadoActual)} (ID ${b.estadoActualId})</h4>
+                `<div class="remito-block"><div class="remito-block__header">
+                    <strong>Bolsín ID ${b.bolsinId} · N° ${b.numeroBolsin} · ${escapar(b.precinto)}</strong>
+                    <span>${badgeEstado(b.estadoActual)}</span>
+                </div>
                 <table><thead><tr><th>ID cambio</th><th>ID estado</th><th>Clase estado</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Responsable</th></tr></thead><tbody>
-                ${b.pasos.map(p => `<tr><td>${p.cambioEstadoId}</td><td>${p.estadoId}</td><td>${escapar(p.claseEstado)}</td><td>${escapar(p.estado)}</td><td>${escapar(p.inicio)}</td><td>${escapar(p.fin)}</td><td>${escapar(p.responsable)}</td></tr>`).join('')}
-                </tbody></table>`).join('');
+                ${b.pasos.map(p => `<tr><td>${p.cambioEstadoId}</td><td>${p.estadoId}</td><td>${escapar(p.claseEstado)}</td><td>${badgeEstado(p.estado)}</td><td>${escapar(p.inicio)}</td><td>${escapar(p.fin)}</td><td>${escapar(p.responsable)}</td></tr>`).join('')}
+                </tbody></table></div>`).join('');
             contenedor.classList.remove('hidden');
         } catch (error) { mostrarError(error); }
     }
@@ -184,13 +231,15 @@
             document.getElementById('panel-resultado').classList.add('hidden');
             document.getElementById('detalle-contenido').innerHTML = `<p><strong>Bolsín N° ${data.bolsin.numeroBolsin}</strong>
                 (Precinto: ${escapar(data.bolsin.numeroPrecinto)} — Origen: ${escapar(data.bolsin.cmOrigen)})</p>` +
-                data.remitos.map(r => `<div><h3>Remito ID ${r.id} · N° ${r.numero}</h3>
-                <table><thead><tr><th>Afectado</th><th>ID doc</th><th>N° Doc</th><th>Tipo</th><th>Asunto</th><th>Área CMC</th><th>Estado</th></tr></thead><tbody>
-                    ${r.documentaciones.map(d => `<tr><td><input type="checkbox" class="doc-afectado" value="${d.id}"
-                        aria-label="Documento ${d.numero} afectado" onchange="invalidarConfirmacion()" disabled></td>
-                        <td>${d.id}</td><td>${d.numero}</td><td>${escapar(d.tipoDocumentacion)}</td><td>${escapar(d.asunto)}</td>
-                        <td>${escapar(d.areaCMCDestino)}</td><td>${escapar(d.estadoActual)}</td></tr>`).join('')}
-                </tbody></table></div>`).join('');
+                data.remitos.map(r => bloqueRemito(
+                    { titulo: `Remito ID ${r.id} · N° ${r.numero}`, estado: r.estadoActual },
+                    `<table><thead><tr><th>Afectado</th><th>ID doc</th><th>N° Doc</th><th>Tipo</th><th>Asunto</th><th>Área CMC</th><th>Estado del documento</th></tr></thead><tbody>
+                        ${r.documentaciones.map(d => `<tr><td><input type="checkbox" class="doc-afectado" value="${d.id}"
+                            aria-label="Documento ${d.numero} afectado" onchange="invalidarConfirmacion()" disabled></td>
+                            <td>${d.id}</td><td>${d.numero}</td><td>${escapar(d.tipoDocumentacion)}</td><td>${escapar(d.asunto)}</td>
+                            <td>${escapar(d.areaCMCDestino)}</td><td>${badgeEstado(d.estadoActual)}</td></tr>`).join('')}
+                    </tbody></table>`
+                )).join('');
             const opciones = [
                 ['ACEPTAR', 'El contenido del bolsín es igual al registrado'],
                 ['DENEGAR', 'No se recibe toda la documentación: marque lo que no llegó'],
@@ -243,15 +292,30 @@
             const data = await api('confirmar', solicitud);
             cancelarOperacion();
             const notificacion = data.notificacion;
+
+            // Agrupa la documentación por remito para no repetir el estado del remito en cada fila
+            // y para que la trazabilidad de cada remito quede visualmente separada de la de los demás.
+            const remitosMap = new Map();
+            data.documentacionesActualizadas.forEach(d => {
+                if (!remitosMap.has(d.remitoId)) remitosMap.set(d.remitoId, { numero: d.remitoNumero, estado: d.remitoEstado, docs: [] });
+                remitosMap.get(d.remitoId).docs.push(d);
+            });
+            const bloquesRemitos = [...remitosMap.entries()].map(([remitoId, r]) => bloqueRemito(
+                { titulo: `Remito ID ${remitoId} · N° ${r.numero}`, estado: r.estado },
+                `<table><thead><tr><th>ID doc</th><th>ID estado</th><th>N° Doc</th><th>Asunto</th><th>Estado del documento</th><th>Responsable</th></tr></thead><tbody>
+                    ${r.docs.map(d => `<tr><td>${d.documentacionId}</td><td>${d.estadoId}</td><td>${d.numeroDoc}</td><td>${escapar(d.asunto)}</td>
+                        <td>${badgeEstado(d.nuevoEstado)}</td><td>${escapar(d.responsable)}</td></tr>`).join('')}</tbody></table>`
+            )).join('');
+
             document.getElementById('resultado-contenido').innerHTML = `<div class="alert-success">
                 <strong>${escapar(data.mensaje)}</strong><br>Fecha: ${escapar(data.fechaHoraRegistro)}</div>
                 <p>Notificación al origen (${escapar(notificacion.destinatario)}): guardada, pendiente de envío por correo.</p>
-                <h3>Historial del bolsín</h3><table><thead><tr><th>Estado</th><th>Inicio</th><th>Fin</th><th>Responsable</th></tr></thead><tbody>
-                ${data.historialEstadosBolsin.map(h => `<tr><td>${escapar(h.estado)}</td><td>${escapar(h.inicio)}</td>
+                <h3>1. Trazabilidad de estados del bolsín</h3>
+                <table><thead><tr><th>Estado</th><th>Inicio</th><th>Fin</th><th>Responsable</th></tr></thead><tbody>
+                ${data.historialEstadosBolsin.map(h => `<tr><td>${badgeEstado(h.estado)}</td><td>${escapar(h.inicio)}</td>
                     <td>${escapar(h.fin)}</td><td>${escapar(h.responsable)}</td></tr>`).join('')}</tbody></table>
-                <h3>Resultado por documento</h3><table><thead><tr><th>ID doc</th><th>ID estado</th><th>N° Doc</th><th>Asunto</th><th>Estado del remito</th><th>Estado del documento</th><th>Responsable</th></tr></thead><tbody>
-                ${data.documentacionesActualizadas.map(d => `<tr><td>${d.documentacionId}</td><td>${d.estadoId}</td><td>${d.numeroDoc}</td><td>${escapar(d.asunto)}</td>
-                    <td>${escapar(d.remitoEstado)}</td><td>${escapar(d.nuevoEstado)}</td><td>${escapar(d.responsable)}</td></tr>`).join('')}</tbody></table>`;
+                <h3 style="margin-top:1.5rem;">2. Estado de cada remito y su documentación</h3>
+                ${bloquesRemitos}`;
             document.getElementById('panel-resultado').classList.remove('hidden');
             await cargarListado();
         } catch (error) { mostrarError(error); }

@@ -12,10 +12,10 @@ La elección se realiza para el bolsín y se identifican los documentos afectado
 | --- | --- | --- | --- |
 | Contenido completo | Todos recibidos y aceptados | No aplica | Recibido y aceptado |
 | Faltantes | No recibidos | Recibidos y aceptados | Parcial si contiene faltantes; aceptado si no los contiene |
-| No corresponden al destino | Recibidos y rechazados | Recibidos y aceptados | Recibido y aceptado, con resultado individual en documentos |
-| Redirección en CMC | Para redirigir | Recibidos y aceptados | Recibido y aceptado, con resultado individual en documentos |
+| No corresponden al destino | Recibidos y rechazados | Recibidos y aceptados | Parcial si contiene rechazados y aceptados; rechazado si **todos** sus documentos fueron rechazados |
+| Redirección en CMC | Para redirigir | Recibidos y aceptados | Parcial si contiene documentos a redirigir; aceptado si no los contiene |
 
-La ERS especifica que el remito queda parcial cuando el origen devuelve el documento faltante a Registrada o lo da de baja. Se adopta recepción parcial desde el registro del faltante, sin esperar esa gestión posterior, para reflejar de inmediato que el contenido no llegó completo. La ERS no prescribe otro estado del remito ante rechazo o redirección; se mantiene recibido y aceptado y se conserva la incidencia en los documentos. Ambas decisiones deben validarse con el tutor y reflejarse en la máquina de estados.
+La ERS especifica que el remito queda parcial cuando el origen devuelve el documento faltante a Registrada o lo da de baja. Se adopta recepción parcial desde el registro del faltante, sin esperar esa gestión posterior, para reflejar de inmediato que el contenido no llegó completo. Se extiende el mismo criterio a cualquier incidencia individual sobre un documento del remito —rechazo (no corresponde al destino) o redirección (redistribución interna en la CMC)—: el remito queda recibido y aceptado por completo solo cuando todos sus documentos se aceptan sin observaciones; si alguno tiene un resultado distinto, el remito queda parcial. Caso particular: si **todos** los documentos de un remito se rechazan por no corresponder al destino, el remito no queda parcial sino en un estado propio, recibido y rechazado (`RecibidoYRechazadoRemito`), porque ningún documento fue efectivamente aceptado.
 
 El bolsín pasa a RecibidoEnCMDestino en las cuatro situaciones. Las acciones posteriores del origen y la distribución interna de la CMC pertenecen a otros casos de uso: no se implementan sus operaciones completas aquí.
 

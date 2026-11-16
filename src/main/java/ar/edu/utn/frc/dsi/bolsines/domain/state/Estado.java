@@ -61,6 +61,7 @@ public abstract class Estado {
     public boolean esRecibido() { return false; }
     public boolean esRecibidoYAceptado() { return false; }
     public boolean esRecibidoYAceptadoParcial() { return false; }
+    public boolean esRecibidoYRechazado() { return false; }
     public boolean esRecibidoYAceptada() { return false; }
     public boolean esNoRecibida() { return false; }
     public boolean esRecibidaYRechazada() { return false; }

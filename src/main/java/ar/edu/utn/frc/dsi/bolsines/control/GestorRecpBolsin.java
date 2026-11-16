@@ -166,7 +166,8 @@ public class GestorRecpBolsin {
                     .filter(CambioEstadoDocumentacion::sosActual).findFirst().orElseThrow();
             docs.add(Map.of("documentacionId", d.getId(), "numeroDoc", d.getNumero(), "asunto", d.getAsunto(),
                     "estadoId", d.getEstadoActual().getId(),
-                    "nuevoEstado", d.getEstadoActual().getNombre(), "remitoEstado", r.getEstado().getNombre(),
+                    "nuevoEstado", d.getEstadoActual().getNombre(),
+                    "remitoId", r.getId(), "remitoNumero", r.getNumero(), "remitoEstado", r.getEstado().getNombre(),
                     "responsable", actual.getEmpleado().getNombreCompleto()));
         }
         return Map.of("mensaje", "Recepción del bolsín N° " + b.getNumeroBolsin() + " registrada correctamente.",
