@@ -43,24 +43,53 @@ La adecuación al CU28, la validación de la máquina de estados y los diagramas
 
 ## Implementación de la persistencia
 
-La aplicación usa Spring Data JPA con Hibernate y el driver SQLite. La configuración está en `src/main/resources/application.properties`: `jdbc:sqlite:bolsines.db` crea o abre el archivo en el directorio desde el que se inicia la aplicación, y `spring.jpa.hibernate.ddl-auto=update` actualiza el esquema al arrancar sin recrear la base. `spring.jpa.open-in-view=false` cierra el contexto de persistencia al terminar cada operación web; los servicios cargan y procesan los datos dentro de sus transacciones.
+### Tecnología y configuración
 
-Las clases del dominio anotadas con `@Entity` representan las tablas. Bolsines, remitos, documentación, comisiones médicas, empleados, usuarios, sesiones, tipos de documentación, estados, cambios de estado y notificaciones se guardan en la misma base. Las asociaciones JPA relacionan el bolsín con sus comisiones, remitos e historial; cada remito contiene detalles, y cada detalle referencia una documentación. Los historiales de bolsín y documentación conservan inicio, fin y empleado responsable de cada transición. El fin nulo identifica el cambio vigente.
+La persistencia se implementa con Spring Data JPA, Hibernate ORM y el dialecto SQLite (`org.hibernate.community.dialect.SQLiteDialect`). La configuración está en `src/main/resources/application.properties`:
 
-### Estado activo e historial
+- `spring.datasource.url=jdbc:sqlite:bolsines.db`: usa un archivo SQLite llamado `bolsines.db`, relativo al directorio de trabajo del proceso. Por eso, al ejecutar Maven desde la carpeta del proyecto, el archivo se crea allí y mantiene los datos entre reinicios.
+- `spring.datasource.driver-class-name=org.sqlite.JDBC`: selecciona el driver JDBC de SQLite.
+- `spring.jpa.hibernate.ddl-auto=update`: Hibernate crea las tablas faltantes y ajusta el esquema al inicio. No recrea toda la base; las adaptaciones de datos puntuales están en `DataSeeder`.
+- `spring.jpa.open-in-view=false`: desactiva la sesión JPA abierta durante toda la respuesta HTTP. Las operaciones que requieren cargar y modificar entidades se ejecutan desde servicios transaccionales.
 
-`Bolsin`, `Remito` y `Documentacion` guardan una referencia directa al objeto `Estado` activo. El historial mantiene además una fila `CambioEstadoBolsin` o `CambioEstadoDocumentacion` por transición, asociada al mismo estado y con sus fechas y responsable. Así, la referencia directa permite consultar y aplicar rápidamente el estado actual, mientras el historial aporta trazabilidad. Los tipos concretos de `Estado` se almacenan en una sola tabla (`estado`) mediante herencia `SINGLE_TABLE` y un discriminador; las referencias inversas a los contextos son transitorias y se reconstruyen al cargar (`@PostLoad`) o al cambiar el estado.
+Las entidades usan claves `Long` generadas con `GenerationType.IDENTITY`. Los repositorios extienden `JpaRepository`, por lo que las operaciones habituales de búsqueda y escritura se delegan a Spring Data. Por ejemplo, `BolsinRepository` permite buscar por ID, listar, guardar y eliminar bolsines sin implementar SQL propio.
 
-`Bolsin` y `Documentacion` tienen un campo `@Version` para control optimista de concurrencia. Las colecciones de remitos e historiales del bolsín, y el historial de documentación, usan cascada y eliminación de huérfanos para persistir sus elementos junto con el agregado.
+### Entidades, tablas y relaciones
 
-### Confirmación transaccional
+Cada clase anotada con `@Entity` se mapea a una tabla. Las asociaciones se expresan como referencias JPA y Hibernate mantiene las claves foráneas:
 
-La consulta y selección de un bolsín no modifican los datos. Al confirmar, `GestorRecpBolsin.tomarConfirmacion` abre una transacción, vuelve a validar el bolsín, el destino, el estado y los documentos seleccionados, ejecuta las transiciones del patrón State y guarda el agregado. En esa misma transacción registra la notificación pendiente dirigida a la comisión de origen. Si la operación falla, los cambios del estado, el historial y la notificación se revierten juntos. La notificación queda en la base como `PENDIENTE_ENVIO`; todavía no se transmite por correo.
+- `Bolsin` tiene relaciones `ManyToOne` con las comisiones médicas de origen y destino, y una relación `OneToMany` con sus `Remito` y `CambioEstadoBolsin`. Las colecciones usan `CascadeType.ALL` y `orphanRemoval=true`: guardar el bolsín propaga sus cambios a esos elementos y quitar un elemento de la colección lo elimina al guardar.
+- `Remito` contiene sus `DetalleRemito` en una colección `OneToMany`, relacionada mediante la columna `remito_id`, con cascada y eliminación de huérfanos. Cada detalle tiene una relación obligatoria `ManyToOne` a `Documentacion`, con `CascadeType.ALL`.
+- `Documentacion` tiene una colección `OneToMany` de `CambioEstadoDocumentacion`, vinculada por `documentacion_id`, también con cascada y eliminación de huérfanos. Su `TipoDocumentacion` es una relación `ManyToOne` obligatoria.
+- Tanto `Bolsin` como `Documentacion` tienen una relación `ManyToOne` al `Estado` activo, con cascada de persistencia y actualización (`PERSIST`, `MERGE`). `Remito` también referencia su estado activo y usa las mismas cascadas, con relación obligatoria.
+- Cada cambio de estado apunta al `Estado` que describe esa etapa y, opcionalmente, al `Empleado` responsable. Los cambios de recepción nuevos incluyen empleado; los registros antiguos o los estados iniciales pueden no tenerlo.
+- `Empleado` se relaciona uno a uno con `Usuario` y muchos a uno con su `ComisionMedica`. `Sesion` apunta a `Usuario`. Las notificaciones se guardan en `NotificacionRecepcion` con el ID del bolsín, destinatario, asunto, cuerpo, fecha y estado de envío.
 
-### Inicialización y compatibilidad
+`Estado` usa herencia JPA `SINGLE_TABLE`: las instancias concretas de los estados de bolsín, remito y documentación comparten la tabla `estado`, diferenciadas por la columna discriminadora `tipo_estado`. Las referencias desde `Estado` hacia el `Bolsin`, `Remito` o `Documentacion` que lo utiliza son `@Transient` y no generan columnas ni asociaciones persistidas. Los contextos restablecen esas referencias inversas al cargar (`@PostLoad`) y al asignar o usar el estado. Así se conserva la delegación del patrón State sin persistir ciclos de objetos.
 
-`DataSeeder` corre al iniciar dentro de una transacción. Si no hay bolsines, carga el conjunto de datos de demostración; si ya hay datos, los conserva. Antes de esa decisión adapta registros de esquemas anteriores: inicializa versiones nulas y completa la referencia al estado activo de bolsines y documentación usando el cambio de historial sin fecha de fin. Es una adaptación puntual del esquema/datos al inicio, no una migración versionada. **Reiniciar BD Demo** vuelve a cargar los datos iniciales y elimina los registros de demostración, incluidas las notificaciones.
+### Estado actual y trazabilidad
 
+El proyecto guarda el estado de dos formas complementarias. La columna asociada a `estado` en cada contexto indica directamente el estado actual y se usa para filtrar o ejecutar la próxima transición. Además, cada transición de bolsín y documentación agrega un registro de historial con estado, fecha y hora de inicio, fecha y hora de fin y empleado responsable. Al avanzar, se cierra el registro vigente asignándole fecha de fin y se agrega otro registro con fecha de fin nula. `Remito` conserva su estado activo, pero no tiene una entidad de historial de cambios propia.
+
+`Bolsin` y `Documentacion` declaran `@Version` para control optimista: Hibernate incluye la versión al actualizar y puede rechazar una escritura basada en una versión obsoleta. `Remito` y las demás entidades no declaran ese campo. SQLite serializa las escrituras, por lo que el control optimista ayuda a detectar actualizaciones concurrentes de esos dos agregados, pero no reemplaza una estrategia de alta concurrencia.
+
+### Qué ocurre al confirmar una recepción
+
+La confirmación se implementa en `GestorRecpBolsin.tomarConfirmacion`, anotado `@Transactional`. Dentro de una sola transacción el gestor:
+
+1. Resuelve el empleado de la sesión activa precargada y vuelve a cargar el bolsín con `BolsinRepository.findById`.
+2. Verifica que el bolsín corresponda a la comisión del empleado, siga Enviado, que la opción sea válida y que los documentos afectados pertenezcan a ese bolsín.
+3. Delega al estado actual del bolsín. Los estados concretos procesan cada detalle y documentación, cierran los cambios vigentes, crean estados e historiales nuevos y actualizan los estados de remito y bolsín.
+4. Ejecuta `bolsines.saveAndFlush(bolsin)`. Las cascadas persisten los estados e historiales nuevos relacionados con el agregado antes de continuar.
+5. Invoca `GestorNotificarRecepcion.registrarNotificacion`. Este método exige una transacción existente (`Propagation.MANDATORY`) y guarda la notificación con `NotificacionRecepcionRepository.save` dentro de esa misma transacción.
+
+La notificación contiene un resumen de estados por remito y documento y comienza en `PENDIENTE_ENVIO`; no se conecta a SMTP ni envía correo. Si ocurre una excepción antes del commit, Spring revierte tanto la actualización de la recepción como la notificación. Las consultas para mostrar bolsines y previsualizar una opción no guardan cambios. La solicitud de confirmación se vuelve a validar en el servidor, en vez de confiar en los datos de la pantalla.
+
+### Arranque, datos de demostración y compatibilidad
+
+`DataSeeder` implementa `ApplicationRunner` y su método `run` es transaccional. En cada arranque inicializa a cero las versiones nulas y, para bolsines y documentación cuyo campo de estado activo esté nulo, toma el `estado_id` del registro de historial sin fecha de fin. Luego solo carga la demo cuando `BolsinRepository.count()` da cero; si ya existe al menos un bolsín, deja la información existente. No utiliza Flyway o Liquibase: la actualización estructural depende de `ddl-auto=update` y la adaptación de datos está codificada explícitamente en el seeder.
+
+La acción **Reiniciar BD Demo** invoca la recarga de datos iniciales: elimina notificaciones y bolsines, sesiones, empleados, usuarios, comisiones, tipos de documentación y estados, y vuelve a construir los datos de muestra. Esto borra los datos guardados en esa base; para conservar una demo previa, no usar ese botón. Las pruebas configuran una base SQLite temporal aparte y no escriben en el archivo `bolsines.db` de ejecución.
 
 ## Adecuación del CU28 a la ERS v1.2 y la Entrega 2
 
