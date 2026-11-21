@@ -21,24 +21,24 @@ public class EnBolsinEnviadoRemito extends Estado {
     // Secuencia 1.3.1.7.1 -> 1.3.1.7.1.5 sobre la referencia inversa this.remito
     @Override
     public void recibirYAceptar(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
-        // Crear el estado de recepción del remito según el resultado individual de sus documentos:
-        // todos aceptados -> aceptado; todos rechazados (no corresponden al destino) -> rechazado;
-        // cualquier otra mezcla de resultados -> parcial.
+        procesarRecepcion(fechaActual, nombre, opciones, crearEstadoRem());
+    }
+
+    @Override
+    public void recibirYAceptarParcialmente(LocalDateTime fechaActual, Empleado nombre,
+                                             java.util.Map<Long, OpcionRecepcion> opciones) {
+        // Se conserva el estado de rechazo total existente; otras incidencias dejan el remito parcial.
         java.util.List<OpcionRecepcion> resultados = this.remito.getDetalleRemito().stream()
                 .map(d -> opciones.get(d.getDocumentacion().getId())).toList();
-        Estado nuevoEstadoRem;
-        if (resultados.stream().allMatch(o -> o == OpcionRecepcion.ACEPTAR)) {
-            nuevoEstadoRem = crearEstadoRem();
-        } else if (resultados.stream().allMatch(o -> o == OpcionRecepcion.RECHAZAR)) {
-            nuevoEstadoRem = new RecibidoYRechazadoRemito(this.remito);
-        } else {
-            nuevoEstadoRem = new RecibidoYAceptadoParcialRemito(this.remito);
-        }
+        Estado nuevoEstadoRem = resultados.stream().allMatch(o -> o == OpcionRecepcion.RECHAZAR)
+                ? new RecibidoYRechazadoRemito(this.remito)
+                : new RecibidoYAceptadoParcialRemito(this.remito);
+        procesarRecepcion(fechaActual, nombre, opciones, nuevoEstadoRem);
+    }
 
-        // 1.3.1.7.1.3: cambiarEstadoDocumentacion(fechaActual: DateTime)
+    private void procesarRecepcion(LocalDateTime fechaActual, Empleado nombre,
+                                   java.util.Map<Long, OpcionRecepcion> opciones, Estado nuevoEstadoRem) {
         cambiarEstadoDocumentacion(fechaActual, nombre, opciones);
-
-        // Mantener la recepción parcial o rechazada cuando corresponda.
         this.remito.setEstado(nuevoEstadoRem);
     }
 

@@ -55,7 +55,13 @@ public class Remito {
     // Delegación pura al estado activo
     public void recibir(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
         this.estado.vincularRemito(this);
-        this.estado.recibirYAceptar(fechaActual, nombre, opciones);
+        boolean contenidoCompleto = this.detalleRemito.stream()
+                .allMatch(detalle -> opciones.get(detalle.getDocumentacion().getId()) == OpcionRecepcion.ACEPTAR);
+        if (contenidoCompleto) {
+            this.estado.recibirYAceptar(fechaActual, nombre, opciones);
+        } else {
+            this.estado.recibirYAceptarParcialmente(fechaActual, nombre, opciones);
+        }
     }
 
     public Long getId() { return id; }

@@ -80,6 +80,11 @@ public abstract class Estado {
         throw new UnsupportedOperationException("Transición recibirYAceptar no permitida en estado: " + this.nombre);
     }
 
+    public void recibirYAceptarParcialmente(LocalDateTime fechaActual, Empleado nombre,
+                                             java.util.Map<Long, OpcionRecepcion> opciones) {
+        throw new UnsupportedOperationException("Transición recibirYAceptarParcialmente no permitida en estado: " + this.nombre);
+    }
+
     public void aceptar(LocalDateTime fechaActual, Empleado nombre) {
         throw new UnsupportedOperationException("Transición aceptar no permitida en estado: " + this.nombre);
     }
