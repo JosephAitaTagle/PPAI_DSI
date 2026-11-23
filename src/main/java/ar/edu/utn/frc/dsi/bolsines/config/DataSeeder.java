@@ -109,20 +109,24 @@ public class DataSeeder implements ApplicationRunner {
         r1.getDetalleRemito().add(new DetalleRemito("Junta Médica",
                 new Documentacion("Apelación Dictamen - Expte 4419/26", LocalDate.now().minusDays(2), 9002, tipoDict, ayer)));
         b1.getRemitos().add(r1);
+        cargarSecuenciaEnviado(b1, ayer, emp);
 
         Bolsin b2 = new Bolsin("PRC-2026-8899", LocalDate.now().minusDays(1), 1043, 1.80, cmRioCuarto, cmCordoba, ayer);
         Remito r2 = new Remito(LocalDate.now().minusDays(1), 5015);
         r2.getDetalleRemito().add(new DetalleRemito("Auditoría Médica",
                 new Documentacion("Revisión Homologación - Expte 4501/26", LocalDate.now().minusDays(1), 9010, tipoExp, ayer)));
         b2.getRemitos().add(r2);
+        cargarSecuenciaEnviado(b2, ayer, emp);
 
         Bolsin b3 = new Bolsin("PRC-2026-8910", LocalDate.now(), 1044, 2.10, cmVillaMaria, cmCordoba, ayer);
         Remito r3 = new Remito(LocalDate.now(), 5020);
         r3.getDetalleRemito().add(new DetalleRemito("Archivo Central",
                 new Documentacion("Historia Clínica Complementaria - Expte 4520/26", LocalDate.now(), 9022, tipoExp, ayer)));
         b3.getRemitos().add(r3);
+        cargarSecuenciaEnviado(b3, LocalDate.now().atTime(8, 0), emp);
 
         Bolsin b4 = new Bolsin("PRC-2026-9999", LocalDate.now(), 2099, 4.00, cmVillaMaria, cmRioCuarto, ayer);
+        cargarSecuenciaRecibido(b4, ayer, emp);
 
         List<Bolsin> bolsinesDemo = new ArrayList<>(List.of(b1, b2, b3, b4));
         // Quince bolsines adicionales con trazabilidad completa de la máquina de estados.
@@ -166,6 +170,7 @@ public class DataSeeder implements ApplicationRunner {
             Bolsin prueba = new Bolsin(String.format("PRC-2026-%04d", 9200 + i), fecha,
                     1200 + i, 1.5 + (i * 0.25), i % 2 == 0 ? cmRioCuarto : cmVillaMaria,
                     cmCordoba, ayer);
+            cargarSecuenciaEnviado(prueba, fecha.atTime(8, 0), emp);
             int cantRemitos = i % 3 == 0 ? 2 : 1;
             for (int r = 0; r < cantRemitos; r++) {
                 Remito remito = new Remito(fecha, numeroRemito++);
@@ -183,5 +188,22 @@ public class DataSeeder implements ApplicationRunner {
         }
 
         bolsinRepo.saveAll(bolsinesDemo);
+    }
+
+    private void cargarSecuenciaEnviado(Bolsin bolsin, LocalDateTime inicio, Empleado empleado) {
+        bolsin.cargarHistorialDemo(List.of(
+                new CreadoBolsin(bolsin),
+                new CerradoBolsin(bolsin),
+                new Enviado(bolsin)),
+                List.of(inicio, inicio.plusHours(1), inicio.plusHours(2)), empleado);
+    }
+
+    private void cargarSecuenciaRecibido(Bolsin bolsin, LocalDateTime inicio, Empleado empleado) {
+        bolsin.cargarHistorialDemo(List.of(
+                new CreadoBolsin(bolsin),
+                new CerradoBolsin(bolsin),
+                new Enviado(bolsin),
+                new RecibidoEnCMDestino(bolsin)),
+                List.of(inicio, inicio.plusHours(1), inicio.plusHours(2), inicio.plusHours(5)), empleado);
     }
 }
