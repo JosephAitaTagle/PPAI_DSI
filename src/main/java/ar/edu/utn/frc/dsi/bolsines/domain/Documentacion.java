@@ -1,6 +1,6 @@
 package ar.edu.utn.frc.dsi.bolsines.domain;
 
-import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.EstadoDocumentacion;
 import ar.edu.utn.frc.dsi.bolsines.domain.state.doc.EnBolsinEnviadoDoc;
 import jakarta.persistence.*;
 import java.time.LocalDate;
@@ -25,7 +25,7 @@ public class Documentacion {
 
     // Referencia directa al estado activo (field state: State)
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    private Estado estado;
+    private EstadoDocumentacion estado;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "documentacion_id")
@@ -33,7 +33,7 @@ public class Documentacion {
 
     protected Documentacion() {}
 
-    // Constructor: inicializa el estado pasándose a sí mismo (this)
+    // Constructor: inicializa el estado inicial de la documentación
     public Documentacion(String asunto, LocalDate fechaPase, Integer numero,
                          TipoDocumentacion tipoDocumentacion, LocalDateTime fechaInicio) {
         this.asunto = asunto;
@@ -41,68 +41,39 @@ public class Documentacion {
         this.numero = numero;
         this.tipoDocumentacion = tipoDocumentacion;
 
-        Estado estadoInicial = new EnBolsinEnviadoDoc(this);
+        EstadoDocumentacion estadoInicial = new EnBolsinEnviadoDoc();
         this.estado = estadoInicial;
         this.cambioEstadoDocumentacion.add(new CambioEstadoDocumentacion(fechaInicio, estadoInicial));
     }
 
-    @PostLoad
-    private void reconstruirReferenciaInversa() {
-        if (this.estado != null) {
-            this.estado.vincularDocumentacion(this);
-        }
-    }
-
     // Equivalente a changeState(state: State) / setEstado(estado: Estado)
-    public void setEstado(Estado nuevoEstado) {
+    public void setEstado(EstadoDocumentacion nuevoEstado) {
         this.estado = nuevoEstado;
-        if (this.estado != null) {
-            this.estado.vincularDocumentacion(this);
-        }
     }
 
-    public void changeState(Estado nuevoEstado) {
+    public void changeState(EstadoDocumentacion nuevoEstado) {
         setEstado(nuevoEstado);
     }
 
-    // Delegación pura al estado activo según la Máquina de Estados de Documentación
+    // Delega en el estado activo según la Máquina de Estados de Documentación,
+    // pasándole explícitamente la documentación y el arreglo de cambios de estado a iterar.
     public void aceptar(LocalDateTime fechaActual, Empleado nombre) {
-        Estado actual = getEstadoActual();
-        actual.vincularDocumentacion(this);
-        actual.aceptar(fechaActual, nombre);
+        getEstadoActual().aceptar(this, fechaActual, nombre, this.cambioEstadoDocumentacion);
     }
 
     public void denegar(LocalDateTime fechaActual, Empleado nombre) {
-        Estado actual = getEstadoActual();
-        actual.vincularDocumentacion(this);
-        actual.denegar(fechaActual, nombre);
+        getEstadoActual().denegar(this, fechaActual, nombre, this.cambioEstadoDocumentacion);
     }
 
     public void rechazar(LocalDateTime fechaActual, Empleado nombre) {
-        Estado actual = getEstadoActual();
-        actual.vincularDocumentacion(this);
-        actual.rechazar(fechaActual, nombre);
+        getEstadoActual().rechazar(this, fechaActual, nombre, this.cambioEstadoDocumentacion);
     }
 
     public void redirigir(LocalDateTime fechaActual, Empleado nombre) {
-        Estado actual = getEstadoActual();
-        actual.vincularDocumentacion(this);
-        actual.redirigir(fechaActual, nombre);
+        getEstadoActual().redirigir(this, fechaActual, nombre, this.cambioEstadoDocumentacion);
     }
 
-    // Métodos de servicio del contexto invocados por los estados concretos
-    public void cerrarCambioEstadoActual(LocalDateTime fechaActual) {
-        this.cambioEstadoDocumentacion.stream()
-                .filter(CambioEstadoDocumentacion::sosActual)
-                .findFirst()
-                .ifPresent(actual -> actual.setFechaHoraFin(fechaActual));
-    }
-
-    public void agregarCambioEstado(CambioEstadoDocumentacion cambioEstado) {
-        this.cambioEstadoDocumentacion.add(cambioEstado);
-    }
-
-    public Estado getEstadoActual() {
+    public EstadoDocumentacion getEstadoActual() {
         if (this.estado == null) throw new IllegalStateException("Falta el estado activo de la entidad");
         return this.estado;
     }

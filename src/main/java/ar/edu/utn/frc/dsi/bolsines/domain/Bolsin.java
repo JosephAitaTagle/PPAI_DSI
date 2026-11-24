@@ -1,12 +1,21 @@
 package ar.edu.utn.frc.dsi.bolsines.domain;
 
-import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
-import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.Enviado;
-import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import ar.edu.utn.frc.dsi.bolsines.domain.state.EstadoBolsin;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.Enviado;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Version;
 
 @Entity
 public class Bolsin {
@@ -29,7 +38,7 @@ public class Bolsin {
 
     // Referencia directa al estado activo (field state: State)
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    private Estado estado;
+    private EstadoBolsin estado;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "bolsin_id")
@@ -51,59 +60,35 @@ public class Bolsin {
         this.origen = origen;
         this.destino = destino;
 
-        Estado estadoInicial = new Enviado(this);
+        EstadoBolsin estadoInicial = new Enviado();
         this.estado = estadoInicial;
         this.cambioEstadoBolsin.add(new CambioEstadoBolsin(fechaInicio, estadoInicial));
     }
 
-    @PostLoad
-    private void reconstruirReferenciaInversa() {
-        if (this.estado != null) {
-            this.estado.vincularBolsin(this);
-        }
-    }
-
     // Equivalente a changeState(state: State) / setEstado(estado: Estado)
-    public void setEstado(Estado nuevoEstado) {
+    public void setEstado(EstadoBolsin nuevoEstado) {
         this.estado = nuevoEstado;
-        if (this.estado != null) {
-            this.estado.vincularBolsin(this);
-        }
     }
 
-    public void changeState(Estado nuevoEstado) {
+    public void changeState(EstadoBolsin nuevoEstado) {
         setEstado(nuevoEstado);
     }
 
-    // Se vincula también al invocar: las bases antiguas compartían filas de estados.
+    // Delega en el estado activo, pasándole explícitamente el contexto que necesita
+    // (el propio bolsín, sus remitos y el arreglo de cambios de estado a iterar).
     public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado empleado,
                                       java.util.Map<Long, OpcionRecepcion> opciones) {
-        Estado actual = getEstadoActual();
-        actual.vincularBolsin(this);
-        actual.recibirYAceptarBolsin(fechaActual, empleado, opciones);
-    }
-
-    // Métodos de servicio del contexto invocados por los estados concretos
-    public void cerrarCambioEstadoActual(LocalDateTime fechaActual) {
-        this.cambioEstadoBolsin.stream()
-                .filter(CambioEstadoBolsin::sosActual)
-                .findFirst()
-                .ifPresent(actual -> actual.setFechaHoraFin(fechaActual));
-    }
-
-    public void agregarCambioEstado(CambioEstadoBolsin cambioEstado) {
-        this.cambioEstadoBolsin.add(cambioEstado);
+        getEstadoActual().recibirYAceptarBolsin(this, fechaActual, empleado, this.remitos, this.cambioEstadoBolsin, opciones);
     }
 
     /** Carga una secuencia de estados de demostración manteniendo el estado activo y su historial alineados. */
-    public void cargarHistorialDemo(List<Estado> estados, List<LocalDateTime> fechas, Empleado empleado) {
+    public void cargarHistorialDemo(List<EstadoBolsin> estados, List<LocalDateTime> fechas, Empleado empleado) {
         if (estados == null || fechas == null || estados.isEmpty() || estados.size() != fechas.size()) {
             throw new IllegalArgumentException("El historial de demostración requiere estados y fechas equivalentes");
         }
         this.cambioEstadoBolsin.clear();
         for (int i = 0; i < estados.size(); i++) {
-            Estado estado = estados.get(i);
-            estado.vincularBolsin(this);
+            EstadoBolsin estado = estados.get(i);
             CambioEstadoBolsin cambio = new CambioEstadoBolsin(fechas.get(i), estado, empleado);
             if (i + 1 < fechas.size()) cambio.setFechaHoraFin(fechas.get(i + 1));
             this.cambioEstadoBolsin.add(cambio);
@@ -119,7 +104,7 @@ public class Bolsin {
         return this.estado != null && this.estado.esEnviado();
     }
 
-    public Estado getEstadoActual() {
+    public EstadoBolsin getEstadoActual() {
         if (this.estado == null) throw new IllegalStateException("Falta el estado activo de la entidad");
         return this.estado;
     }

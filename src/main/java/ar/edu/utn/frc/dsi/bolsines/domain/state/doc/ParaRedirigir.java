@@ -1,15 +1,13 @@
 package ar.edu.utn.frc.dsi.bolsines.domain.state.doc;
 
-import ar.edu.utn.frc.dsi.bolsines.domain.Documentacion;
-import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.EstadoDocumentacion;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 
 @Entity
 @DiscriminatorValue("DOC_PARA_REDIRIGIR")
-public class ParaRedirigir extends Estado {
-    public ParaRedirigir() { super("ParaRedirigir", "Documentación recibida en CMC para redistribución interna", "Documentacion"); }
-    public ParaRedirigir(Documentacion documentacion) { super("ParaRedirigir", "Documentación recibida en CMC para redistribución interna", "Documentacion", documentacion); }
+public class ParaRedirigir extends EstadoDocumentacion {
+    public ParaRedirigir() { super("ParaRedirigir", "Documentación recibida en CMC para redistribución interna"); }
     @Override
     public boolean esParaRedirigir() { return true; }
 }

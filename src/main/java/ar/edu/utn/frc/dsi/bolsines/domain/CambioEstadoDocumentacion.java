@@ -1,8 +1,14 @@
 package ar.edu.utn.frc.dsi.bolsines.domain;
 
-import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import ar.edu.utn.frc.dsi.bolsines.domain.state.EstadoDocumentacion;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 
 @Entity
 public class CambioEstadoDocumentacion {
@@ -13,17 +19,17 @@ public class CambioEstadoDocumentacion {
     private LocalDateTime fechaHoraFin;
 
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, optional = false)
-    private Estado estado;
+    private EstadoDocumentacion estado;
 
     @ManyToOne
     private Empleado empleado;
 
     protected CambioEstadoDocumentacion() {}
-    public CambioEstadoDocumentacion(LocalDateTime fechaHoraInicio, Estado estado) {
+    public CambioEstadoDocumentacion(LocalDateTime fechaHoraInicio, EstadoDocumentacion estado) {
         this(fechaHoraInicio, estado, null);
     }
 
-    public CambioEstadoDocumentacion(LocalDateTime fechaHoraInicio, Estado estado, Empleado empleado) {
+    public CambioEstadoDocumentacion(LocalDateTime fechaHoraInicio, EstadoDocumentacion estado, Empleado empleado) {
         this.empleado = empleado;
         this.fechaHoraInicio = fechaHoraInicio;
         this.estado = estado;
@@ -32,7 +38,7 @@ public class CambioEstadoDocumentacion {
     public boolean sosActual() { return this.fechaHoraFin == null; }
     public void setFechaHoraFin(LocalDateTime fechaHoraFin) { this.fechaHoraFin = fechaHoraFin; }
     public Empleado getEmpleado() { return empleado; }
-    public Estado getEstado() { return estado; }
+    public EstadoDocumentacion getEstado() { return estado; }
     public LocalDateTime getFechaHoraInicio() { return fechaHoraInicio; }
     public LocalDateTime getFechaHoraFin() { return fechaHoraFin; }
 }
