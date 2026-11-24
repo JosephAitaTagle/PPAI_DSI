@@ -65,20 +65,19 @@ public class Bolsin {
         this.cambioEstadoBolsin.add(new CambioEstadoBolsin(fechaInicio, estadoInicial));
     }
 
-    // Equivalente a changeState(state: State) / setEstado(estado: Estado)
+    // Equivalente a setEstado(estado: Estado)
     public void setEstado(EstadoBolsin nuevoEstado) {
         this.estado = nuevoEstado;
     }
 
-    public void changeState(EstadoBolsin nuevoEstado) {
-        setEstado(nuevoEstado);
-    }
-
     // Delega en el estado activo, pasándole explícitamente el contexto que necesita
     // (el propio bolsín, sus remitos y el arreglo de cambios de estado a iterar).
-    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado empleado,
-                                      java.util.Map<Long, OpcionRecepcion> opciones) {
-        getEstadoActual().recibirYAceptarBolsin(this, fechaActual, empleado, this.remitos, this.cambioEstadoBolsin, opciones);
+    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado empleado) {
+        getEstadoActual().recibirYAceptarBolsin(this, fechaActual, empleado, this.remitos, this.cambioEstadoBolsin);
+    }
+
+    public void agregarCambioEstado(CambioEstadoBolsin cambioEstado) {
+        this.cambioEstadoBolsin.add(cambioEstado);
     }
 
     /** Carga una secuencia de estados de demostración manteniendo el estado activo y su historial alineados. */

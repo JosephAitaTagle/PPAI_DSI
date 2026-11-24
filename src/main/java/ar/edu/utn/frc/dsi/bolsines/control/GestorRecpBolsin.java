@@ -147,8 +147,13 @@ public class GestorRecpBolsin {
         Empleado empleado = buscarEmpleado();
         Bolsin bolsin = buscarBolsin(solicitud.bolsinId(), empleado);
         Map<Long, OpcionRecepcion> opciones = validarSolicitud(bolsin, empleado, solicitud);
+        for (Remito r : bolsin.getRemitos()) {
+            for (DetalleRemito det : r.getDetalleRemito()) {
+                det.setOpcionRecepcion(opciones.get(det.getDocumentacion().getId()));
+            }
+        }
         LocalDateTime fecha = LocalDateTime.now();
-        bolsin.recibirYAceptarBolsin(fecha, empleado, opciones);
+        bolsin.recibirYAceptarBolsin(fecha, empleado);
         bolsines.saveAndFlush(bolsin);
         NotificacionRecepcion notificacion = notificaciones.registrarNotificacion(bolsin, fecha);
         return construirResumen(bolsin, fecha, notificacion);

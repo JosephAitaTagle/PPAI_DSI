@@ -46,13 +46,13 @@ public class Documentacion {
         this.cambioEstadoDocumentacion.add(new CambioEstadoDocumentacion(fechaInicio, estadoInicial));
     }
 
-    // Equivalente a changeState(state: State) / setEstado(estado: Estado)
+    // Equivalente a setEstado(estado: Estado)
     public void setEstado(EstadoDocumentacion nuevoEstado) {
         this.estado = nuevoEstado;
     }
 
-    public void changeState(EstadoDocumentacion nuevoEstado) {
-        setEstado(nuevoEstado);
+    public void agregarCambioEstado(CambioEstadoDocumentacion cambioEstado) {
+        this.cambioEstadoDocumentacion.add(cambioEstado);
     }
 
     // Delega en el estado activo según la Máquina de Estados de Documentación,

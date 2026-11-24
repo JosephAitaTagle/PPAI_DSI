@@ -20,37 +20,53 @@ public class EnBolsinEnviadoDoc extends EstadoDocumentacion {
 
     // Flujo Principal (Secuencia 1.3.1.7.1.4.1 -> 5) operando sobre la documentación recibida por parámetro
     @Override
-    public void aceptar(Documentacion documentacion, LocalDateTime fecha, Empleado empleado,
+    public void aceptar(Documentacion documentacion, LocalDateTime fechaActual, Empleado nombre,
                          List<CambioEstadoDocumentacion> cambiosEstadoDocumentacion) {
-        transicionar(documentacion, fecha, empleado, cambiosEstadoDocumentacion, new RecibidaYAceptada());
+        cambiarEstadoDoc(fechaActual, cambiosEstadoDocumentacion);
+        RecibidaYAceptada nuevoEstado = crearEstadoDoc();
+        CambioEstadoDocumentacion nuevoCambio = crearCambioEstadoDocumentacion(fechaActual, nuevoEstado, nombre);
+        documentacion.setEstado(nuevoEstado);
+        documentacion.agregarCambioEstado(nuevoCambio);
     }
 
     // Flujo Alternativo 1: Documentación incompleta -> NoRecibida
     @Override
-    public void denegar(Documentacion documentacion, LocalDateTime fecha, Empleado empleado,
+    public void denegar(Documentacion documentacion, LocalDateTime fechaActual, Empleado nombre,
                          List<CambioEstadoDocumentacion> cambiosEstadoDocumentacion) {
-        transicionar(documentacion, fecha, empleado, cambiosEstadoDocumentacion, new NoRecibida());
+        cambiarEstadoDoc(fechaActual, cambiosEstadoDocumentacion);
+        NoRecibida nuevoEstado = new NoRecibida();
+        CambioEstadoDocumentacion nuevoCambio = crearCambioEstadoDocumentacion(fechaActual, nuevoEstado, nombre);
+        documentacion.setEstado(nuevoEstado);
+        documentacion.agregarCambioEstado(nuevoCambio);
     }
 
     // Flujo Alternativo 2: No corresponde a CM destino -> RecibidaYRechazada
     @Override
-    public void rechazar(Documentacion documentacion, LocalDateTime fecha, Empleado empleado,
+    public void rechazar(Documentacion documentacion, LocalDateTime fechaActual, Empleado nombre,
                           List<CambioEstadoDocumentacion> cambiosEstadoDocumentacion) {
-        transicionar(documentacion, fecha, empleado, cambiosEstadoDocumentacion, new RecibidaYRechazada());
+        cambiarEstadoDoc(fechaActual, cambiosEstadoDocumentacion);
+        RecibidaYRechazada nuevoEstado = new RecibidaYRechazada();
+        CambioEstadoDocumentacion nuevoCambio = crearCambioEstadoDocumentacion(fechaActual, nuevoEstado, nombre);
+        documentacion.setEstado(nuevoEstado);
+        documentacion.agregarCambioEstado(nuevoCambio);
     }
 
     // Flujo Alternativo 3: CM destino es CMC -> ParaRedirigir
     @Override
-    public void redirigir(Documentacion documentacion, LocalDateTime fecha, Empleado empleado,
+    public void redirigir(Documentacion documentacion, LocalDateTime fechaActual, Empleado nombre,
                            List<CambioEstadoDocumentacion> cambiosEstadoDocumentacion) {
-        transicionar(documentacion, fecha, empleado, cambiosEstadoDocumentacion, new ParaRedirigir());
+        cambiarEstadoDoc(fechaActual, cambiosEstadoDocumentacion);
+        ParaRedirigir nuevoEstado = new ParaRedirigir();
+        CambioEstadoDocumentacion nuevoCambio = crearCambioEstadoDocumentacion(fechaActual, nuevoEstado, nombre);
+        documentacion.setEstado(nuevoEstado);
+        documentacion.agregarCambioEstado(nuevoCambio);
     }
 
-    private void transicionar(Documentacion documentacion, LocalDateTime fecha, Empleado empleado,
-                               List<CambioEstadoDocumentacion> cambiosEstadoDocumentacion, EstadoDocumentacion nuevoEstado) {
-        obtenerCambioActual(cambiosEstadoDocumentacion).setFechaHoraFin(fecha);
-        CambioEstadoDocumentacion nuevoCambio = new CambioEstadoDocumentacion(fecha, nuevoEstado, empleado);
-        documentacion.setEstado(nuevoEstado);
-        cambiosEstadoDocumentacion.add(nuevoCambio);
+    public RecibidaYAceptada crearEstadoDoc() {
+        return new RecibidaYAceptada();
+    }
+
+    public CambioEstadoDocumentacion crearCambioEstadoDocumentacion(LocalDateTime fechaActual, EstadoDocumentacion estado, Empleado nombre) {
+        return new CambioEstadoDocumentacion(fechaActual, estado, nombre);
     }
 }

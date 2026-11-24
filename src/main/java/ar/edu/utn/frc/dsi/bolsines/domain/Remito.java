@@ -33,23 +33,20 @@ public class Remito {
         this.estado = new EnBolsinEnviadoRemito();
     }
 
-    // Equivalente a changeState(state: State) / setEstado(estado: Estado)
+    // Equivalente a setEstado(estado: Estado)
     public void setEstado(EstadoRemito nuevoEstado) {
         this.estado = nuevoEstado;
     }
 
-    public void changeState(EstadoRemito nuevoEstado) {
-        setEstado(nuevoEstado);
-    }
-
-    // Delega en el estado activo, pasándole explícitamente el remito como contexto
-    public void recibir(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
+    // Decide, según la opción ya registrada en cada detalle, si el remito se recibió completo o no,
+    // y delega en el estado activo pasándole el remito y su detalle.
+    public void recibirYAceptar(LocalDateTime fechaActual, Empleado nombre) {
         boolean contenidoCompleto = this.detalleRemito.stream()
-                .allMatch(detalle -> opciones.get(detalle.getDocumentacion().getId()) == OpcionRecepcion.ACEPTAR);
+                .allMatch(detalle -> detalle.getOpcionRecepcion() == OpcionRecepcion.ACEPTAR);
         if (contenidoCompleto) {
-            this.estado.recibirYAceptar(this, fechaActual, nombre, opciones);
+            this.estado.recibirYAceptar(this, fechaActual, nombre, this.detalleRemito);
         } else {
-            this.estado.recibirYAceptarParcialmente(this, fechaActual, nombre, opciones);
+            this.estado.recibirYAceptarParcialmente(this, fechaActual, nombre, this.detalleRemito);
         }
     }
 

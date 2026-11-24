@@ -10,6 +10,11 @@ public class DetalleRemito {
     private Long id;
     private String areaCMCDestino;
 
+    // auxiliar, no está en el diagrama: transporta la decisión individual (ACEPTAR/DENEGAR/RECHAZAR/REDIRIGIR)
+    // hasta que la cascada de recepción llega a este detalle, sin pasarla como parámetro por toda la cadena.
+    @Enumerated(EnumType.STRING)
+    private OpcionRecepcion opcionRecepcion = OpcionRecepcion.ACEPTAR;
+
     @ManyToOne(cascade = CascadeType.ALL, optional = false)
     private Documentacion documentacion;
 
@@ -19,16 +24,17 @@ public class DetalleRemito {
         this.documentacion = documentacion;
     }
 
-    public void procesarRecepcion(LocalDateTime fechaActual, Empleado nombre, OpcionRecepcion opcionRecepcion) {
+    public void aceptar(LocalDateTime fechaActual, Empleado nombre) {
         switch (opcionRecepcion) {
             case ACEPTAR   -> this.documentacion.aceptar(fechaActual, nombre);
             case DENEGAR   -> this.documentacion.denegar(fechaActual, nombre);
             case RECHAZAR  -> this.documentacion.rechazar(fechaActual, nombre);
             case REDIRIGIR -> this.documentacion.redirigir(fechaActual, nombre);
-            default -> throw new IllegalArgumentException("Opción de recepción desconocida: " + opcionRecepcion);
         }
     }
 
+    public void setOpcionRecepcion(OpcionRecepcion opcionRecepcion) { this.opcionRecepcion = opcionRecepcion; }
+    public OpcionRecepcion getOpcionRecepcion() { return opcionRecepcion; }
     public String getAreaCMCDestino() { return areaCMCDestino; }
     public Documentacion getDocumentacion() { return documentacion; }
 }

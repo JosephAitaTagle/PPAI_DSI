@@ -3,7 +3,7 @@ package ar.edu.utn.frc.dsi.bolsines.domain.state;
 import ar.edu.utn.frc.dsi.bolsines.domain.*;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import java.util.Map;
+import java.util.List;
 
 @Entity
 @Table(name = "estado")
@@ -30,13 +30,11 @@ public abstract class EstadoRemito {
     public boolean esRecibidoYAceptadoParcial() { return false; }
     public boolean esRecibidoYRechazado() { return false; }
 
-    public void recibirYAceptar(Remito remito, LocalDateTime fecha, Empleado empleado,
-                                 Map<Long, OpcionRecepcion> opciones) {
+    public void recibirYAceptar(Remito remito, LocalDateTime fechaActual, Empleado nombre, List<DetalleRemito> detalle) {
         throw new UnsupportedOperationException("Transición recibirYAceptar no permitida en estado: " + this.nombre);
     }
 
-    public void recibirYAceptarParcialmente(Remito remito, LocalDateTime fecha, Empleado empleado,
-                                             Map<Long, OpcionRecepcion> opciones) {
+    public void recibirYAceptarParcialmente(Remito remito, LocalDateTime fechaActual, Empleado nombre, List<DetalleRemito> detalle) {
         throw new UnsupportedOperationException("Transición recibirYAceptarParcialmente no permitida en estado: " + this.nombre);
     }
 

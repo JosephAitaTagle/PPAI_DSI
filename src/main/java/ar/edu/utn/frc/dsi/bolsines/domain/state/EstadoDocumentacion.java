@@ -51,12 +51,13 @@ public abstract class EstadoDocumentacion {
         throw new UnsupportedOperationException("Transición redirigir no permitida en estado: " + this.nombre);
     }
 
-    // Itera el historial recibido por parámetro para ubicar el cambio de estado vigente.
-    protected CambioEstadoDocumentacion obtenerCambioActual(List<CambioEstadoDocumentacion> cambiosEstadoDocumentacion) {
-        return cambiosEstadoDocumentacion.stream()
+    // Ubica el cambio de estado vigente iterando el historial recibido por parámetro y lo cierra.
+    protected void cambiarEstadoDoc(LocalDateTime fechaActual, List<CambioEstadoDocumentacion> cambiosEstadoDocumentacion) {
+        cambiosEstadoDocumentacion.stream()
                 .filter(CambioEstadoDocumentacion::sosActual)
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No hay un cambio de estado de documentación vigente"));
+                .orElseThrow(() -> new IllegalStateException("No hay un cambio de estado de documentación vigente"))
+                .setFechaHoraFin(fechaActual);
     }
 
     public Long getId() { return id; }
