@@ -1,6 +1,6 @@
 # PPAI 2026 — CU28: Registrar recepción de bolsín
 
-Diseño de Sistemas de Información, UTN FRC. Grupo 8, curso 3K2. Versión 2.0, integrada con V3 de upstream/main. Entrega 2: implementación del rediseño con patrón State sobre Documentación, conforme al alcance del CU28 de la ERS v1.2.
+Diseño de Sistemas de Información, UTN FRC. Grupo 8, curso 3K2. Versión 2.0, integrada con V3 de upstream/main. Entrega 2: implementación del rediseño con patrón State sobre Bolsín, Remito y Documentación, conforme al alcance del CU28 de la ERS v1.2.
 
 Java 17+, Spring Boot 3.2.5, interfaz web HTML/JavaScript, SQLite y persistencia JPA/Hibernate. Se requiere Maven 3.6+.
 
@@ -21,9 +21,9 @@ Abrir http://localhost:8080. Se utiliza una única sesión de demostración prec
 5. Para rechazo (A4), marcar solo el documento que no corresponde a la CM. Para redirección (A5), marcar los documentos a distribuir internamente en la CMC.
 6. Mostrar los estados finales y el empleado responsable. Volver o cancelar antes de confirmar no registra cambios (A6 y observación 1).
 
-Los contextos guardan una referencia al estado activo; los estados concretos crean los estados destino y los cambios de historial con su responsable. Las referencias inversas se reconstruyen al cargar las entidades. Las bases anteriores se adaptan al iniciar sin borrar sus datos.
+Los contextos guardan una referencia al estado activo; los estados concretos crean los estados destino y los cambios de historial con su responsable, recibiendo el contexto que necesitan como parámetro explícito en cada transición. Las bases anteriores se adaptan al iniciar sin borrar sus datos.
 
-El patrón State conserva las referencias inversas y las fábricas de estados de V3. Cada contexto guarda su estado activo y mantiene la trazabilidad en sus cambios de estado; las recepciones nuevas registran el empleado responsable.
+El patrón State conserva las fábricas de estados de V3 (`crearEstado`, `crearEstadoDoc`, `crearCambioEstadoBolsin`, `crearCambioEstadoDocumentacion`), pero ya no usa referencias inversas transitorias desde el estado hacia su contexto. Cada contexto guarda su estado activo y mantiene la trazabilidad en sus cambios de estado; las recepciones nuevas registran el empleado responsable.
 
 La selección se mantiene en cada pestaña. El servidor vuelve a validar la solicitud completa al confirmar y no conserva selecciones globales.
 
@@ -61,11 +61,11 @@ Cada clase anotada con `@Entity` se mapea a una tabla. Las asociaciones se expre
 - `Bolsin` tiene relaciones `ManyToOne` con las comisiones médicas de origen y destino, y una relación `OneToMany` con sus `Remito` y `CambioEstadoBolsin`. Las colecciones usan `CascadeType.ALL` y `orphanRemoval=true`: guardar el bolsín propaga sus cambios a esos elementos y quitar un elemento de la colección lo elimina al guardar.
 - `Remito` contiene sus `DetalleRemito` en una colección `OneToMany`, relacionada mediante la columna `remito_id`, con cascada y eliminación de huérfanos. Cada detalle tiene una relación obligatoria `ManyToOne` a `Documentacion`, con `CascadeType.ALL`.
 - `Documentacion` tiene una colección `OneToMany` de `CambioEstadoDocumentacion`, vinculada por `documentacion_id`, también con cascada y eliminación de huérfanos. Su `TipoDocumentacion` es una relación `ManyToOne` obligatoria.
-- Tanto `Bolsin` como `Documentacion` tienen una relación `ManyToOne` al `Estado` activo, con cascada de persistencia y actualización (`PERSIST`, `MERGE`). `Remito` también referencia su estado activo y usa las mismas cascadas, con relación obligatoria.
-- Cada cambio de estado apunta al `Estado` que describe esa etapa y, opcionalmente, al `Empleado` responsable. Los cambios de recepción nuevos incluyen empleado; los registros antiguos o los estados iniciales pueden no tenerlo.
+- `Bolsin` referencia su estado activo con `EstadoBolsin`, `Remito` con `EstadoRemito` y `Documentacion` con `EstadoDocumentacion`: tres jerarquías abstractas independientes, una por contexto, cada una con cascada de persistencia y actualización (`PERSIST`, `MERGE`).
+- Cada cambio de estado apunta al estado que describe esa etapa (`CambioEstadoBolsin` → `EstadoBolsin`, `CambioEstadoDocumentacion` → `EstadoDocumentacion`) y, opcionalmente, al `Empleado` responsable. Los cambios de recepción nuevos incluyen empleado; los registros antiguos o los estados iniciales pueden no tenerlo.
 - `Empleado` se relaciona uno a uno con `Usuario` y muchos a uno con su `ComisionMedica`. `Sesion` apunta a `Usuario`. Las notificaciones se guardan en `NotificacionRecepcion` con el ID del bolsín, destinatario, asunto, cuerpo, fecha y estado de envío.
 
-`Estado` usa herencia JPA `SINGLE_TABLE`: las instancias concretas de los estados de bolsín, remito y documentación comparten la tabla `estado`, diferenciadas por la columna discriminadora `tipo_estado`. Las referencias desde `Estado` hacia el `Bolsin`, `Remito` o `Documentacion` que lo utiliza son `@Transient` y no generan columnas ni asociaciones persistidas. Los contextos restablecen esas referencias inversas al cargar (`@PostLoad`) y al asignar o usar el estado. Así se conserva la delegación del patrón State sin persistir ciclos de objetos.
+`EstadoBolsin`, `EstadoRemito` y `EstadoDocumentacion` son tres clases abstractas independientes (sin relación de herencia entre ellas), cada una resolviendo solo los métodos pertinentes a su propia máquina de estados. Las tres usan herencia JPA `SINGLE_TABLE` y comparten la misma tabla física `estado`, diferenciadas por la columna discriminadora `tipo_estado` (prefijos `BOLSIN_*`, `REMITO_*`, `DOC_*`): es la misma tabla que ya existía, ahora modelada como tres raíces de entidad en vez de una sola. Ninguna guarda una referencia transitoria hacia su contexto: cada operación de transición recibe el contexto que necesita como parámetro explícito (el propio agregado, el o los arreglos a iterar), por lo que no hace falta reconstruir referencias inversas al cargar desde JPA.
 
 ### Estado actual y trazabilidad
 
@@ -78,10 +78,11 @@ El proyecto guarda el estado de dos formas complementarias. La columna asociada 
 La confirmación se implementa en `GestorRecpBolsin.tomarConfirmacion`, anotado `@Transactional`. Dentro de una sola transacción el gestor:
 
 1. Resuelve el empleado de la sesión activa precargada y vuelve a cargar el bolsín con `BolsinRepository.findById`.
-2. Verifica que el bolsín corresponda a la comisión del empleado, siga Enviado, que la opción sea válida y que los documentos afectados pertenezcan a ese bolsín.
-3. Delega al estado actual del bolsín. Los estados concretos procesan cada detalle y documentación, cierran los cambios vigentes, crean estados e historiales nuevos y actualizan los estados de remito y bolsín.
-4. Ejecuta `bolsines.saveAndFlush(bolsin)`. Las cascadas persisten los estados e historiales nuevos relacionados con el agregado antes de continuar.
-5. Invoca `GestorNotificarRecepcion.registrarNotificacion`. Este método exige una transacción existente (`Propagation.MANDATORY`) y guarda la notificación con `NotificacionRecepcionRepository.save` dentro de esa misma transacción.
+2. Verifica que el bolsín corresponda a la comisión del empleado, siga Enviado, que la opción sea válida y que los documentos afectados pertenezcan a ese bolsín. El resultado de esa validación es un `Map<Long, OpcionRecepcion>` interno al gestor.
+3. Registra esa decisión individual en cada `DetalleRemito` (`setOpcionRecepcion`), para que viaje junto con el propio detalle en vez de pasarse como parámetro a través de la cascada de dominio.
+4. Delega al estado actual del bolsín con `Bolsin.recibirYAceptarBolsin(fecha, empleado)`. Los estados concretos (uno por contexto: `EstadoBolsin`, `EstadoRemito`, `EstadoDocumentacion`) procesan cada remito y documentación según la opción ya registrada en su detalle, cierran los cambios vigentes, crean estados e historiales nuevos y actualizan los estados de remito y bolsín.
+5. Ejecuta `bolsines.saveAndFlush(bolsin)`. Las cascadas persisten los estados e historiales nuevos relacionados con el agregado antes de continuar.
+6. Invoca `GestorNotificarRecepcion.registrarNotificacion`. Este método exige una transacción existente (`Propagation.MANDATORY`) y guarda la notificación con `NotificacionRecepcionRepository.save` dentro de esa misma transacción.
 
 La notificación contiene un resumen de estados por remito y documento y comienza en `PENDIENTE_ENVIO`; no se conecta a SMTP ni envía correo. Si ocurre una excepción antes del commit, Spring revierte tanto la actualización de la recepción como la notificación. Las consultas para mostrar bolsines y previsualizar una opción no guardan cambios. La solicitud de confirmación se vuelve a validar en el servidor, en vez de confiar en los datos de la pantalla.
 
@@ -97,7 +98,7 @@ Referencias aportadas: ERS v1.2 (reglas de negocio, página 6; CU28, páginas 11
 
 ## Alcance y decisiones
 
-El grupo 8 implementa CU28 y aplica State a Documentación. Se conserva la jerarquía común `Estado` del diagrama, con estados concretos para Bolsín, Remito y Documentación. La integración de V3 (`upstream/main`, commit `da63ebc`) agrega una referencia directa al estado activo y una referencia inversa transitoria desde el estado al contexto. Las entidades delegan las operaciones al estado actual; los estados concretos crean los estados destino y los cambios de estado; el gestor coordina la transacción y valida el contexto de la recepción.
+El grupo 8 implementa CU28 y aplica State a Bolsín, Remito y Documentación. A diferencia de una primera adaptación que compartía una única jerarquía `Estado` con referencias transitorias hacia los tres contextos, el diseño actual separa `EstadoBolsin`, `EstadoRemito` y `EstadoDocumentacion` en tres jerarquías abstractas independientes, cada una resolviendo solo los métodos pertinentes a su propia entidad. Las entidades delegan las operaciones al estado actual pasándole explícitamente el contexto que necesita (el propio agregado, los arreglos a iterar); los estados concretos crean los estados destino y los cambios de estado con el empleado responsable; el gestor coordina la transacción y valida el contexto de la recepción.
 
 La elección se realiza para el bolsín y se identifican los documentos afectados. Los demás documentos se aceptan. Una recepción registra una de las situaciones enumeradas en el CU28; combinar varias situaciones diferentes en una misma recepción queda fuera de esta interfaz.
 
@@ -118,7 +119,7 @@ Los cambios de estado de Bolsín y Documentación incorporan una referencia `Emp
 
 Las escrituras del bolsín, documentos, remitos y notificación pendiente se ejecutan en la misma transacción. Una transición inválida revierte la recepción completa. `@Version` protege las entidades frente a actualizaciones sobre una versión anterior; SQLite tiene limitaciones para escrituras simultáneas. No se implementa un sistema de autenticación: se usa la única sesión activa precargada para la defensa.
 
-`ddl-auto=update` conserva el historial al reiniciar. Para bases anteriores, Hibernate agrega las columnas faltantes sin borrar tablas; el arranque inicializa las versiones nulas y reconstruye la referencia directa al estado desde el cambio de estado actual. La columna de estado admite nulos durante esa adaptación; las operaciones de dominio exigen un estado activo. Las referencias inversas se restablecen al cargar y antes de delegar cada operación, para soportar las filas de estados compartidas por la versión anterior sin confundir documentos ni bolsines. Esto es una adaptación para el proyecto académico, no un sistema de migraciones para producción.
+`ddl-auto=update` conserva el historial al reiniciar. Para bases anteriores, Hibernate agrega las columnas faltantes sin borrar tablas; el arranque inicializa las versiones nulas y reconstruye la referencia directa al estado desde el cambio de estado actual. La columna de estado admite nulos durante esa adaptación; las operaciones de dominio exigen un estado activo. La migración de prueba también cubre un esquema previo que compartía una sola fila de `estado` entre varios registros del mismo contexto (p. ej. todos los bolsines en `Enviado` apuntando al mismo id): como `EstadoBolsin`, `EstadoRemito` y `EstadoDocumentacion` son hoy tres jerarquías de entidad independientes, cada una solo instancia sus propios subtipos a partir del discriminador, así que esa fila compartida se resuelve sin ambigüedad entre documentos, remitos y bolsines, sin necesidad de ninguna referencia inversa. Esto es una adaptación para el proyecto académico, no un sistema de migraciones para producción.
 
 ## Integración del CU29
 
@@ -128,15 +129,21 @@ Las escrituras del bolsín, documentos, remitos y notificación pendiente se eje
 
 ## Cambios para trasladar al diagrama de clases
 
-- Agregar la asociación desde ambos cambios de estado hacia `Empleado` (opcional para historia anterior, obligatoria en las recepciones nuevas).
-- Agregar `SolicitudRecepcion(bolsinId: Long, opcion: OpcionRecepcion, documentosAfectados: Set<Long>)` y el enum de opciones.
-- Quitar del gestor el estado mutable del flujo: la selección pertenece a cada pestaña y se envía en la solicitud. Cancelar descarta la selección sin escribir en el servidor.
-- Las operaciones de recepción de Bolsín y Remito reciben `Map<Long, OpcionRecepcion>` para resolver las decisiones individuales.
-- Agregar `esRecibidoYAceptadoParcial(): boolean` a Estado y su redefinición en el estado parcial del remito.
-- Incorporar el atributo `estado: Estado` a Bolsín y Documentación, conservando los historiales. Los contextos exponen `setEstado` y `changeState` como en V3.
-- Incorporar las referencias inversas transitorias de Estado a sus contextos, sus constructores y la revinculación al cargar desde JPA.
-- Los estados concretos crean las instancias destino (`crearEstado`, `crearEstadoRem`, `crearEstadoDoc`) y los cambios de estado con el empleado responsable. Las asociaciones persisten esas instancias por cascada; ya no se consulta un catálogo global para transicionar.
+Comparado contra el último export de Visual Paradigm (`modelo-clases-recepcion-bolsin.md`), esto es lo que el código ya resuelve y todavía no está reflejado en el diagrama:
+
+- Agregar la asociación desde `CambioEstadoBolsin` y `CambioEstadoDocumentacion` hacia `Empleado` (opcional para historia anterior, obligatoria en las recepciones nuevas), y el parámetro `empleado` en su constructor.
+- Agregar el atributo `esCMC: boolean` a `ComisionMedica`: lo usa la validación de que solo la Comisión Médica Central puede redirigir documentación.
+- Agregar a `EstadoRemito` las consultas `esRecibidoYAceptado()`, `esRecibidoYAceptadoParcial()`, `esRecibidoYRechazado()`, y a `EstadoDocumentacion` las consultas `esRecibidoYAceptada()`, `esNoRecibida()`, `esRecibidaYRechazada()`, `esParaRedirigir()`. Hoy solo se infieren de los nombres de las subclases en el diagrama; en el código son métodos reales (y `esRecibidaYRechazada()` se usa para decidir si un remito queda `RecibidoYRechazado` en vez de parcial).
+- Agregar `SolicitudRecepcion(bolsinId: Long, opcion: OpcionRecepcion, documentosAfectados: Set<Long>)` y el enum `OpcionRecepcion` en la capa de control; el diagrama de clases no detalla ese nivel.
+- Agregar a `DetalleRemito` el atributo `opcionRecepcion: OpcionRecepcion` (default `ACEPTAR`): transporta la decisión individual (aceptar/denegar/rechazar/redirigir) hasta que la cascada de recepción llega a ese detalle, sin pasarla como parámetro por `EstadoBolsin.recibirYAceptarBolsin` ni por `EstadoRemito.recibirYAceptar`/`recibirYAceptarParcialmente`. El gestor la fija antes de iniciar la cascada.
 - Agregar `GestorNotificarRecepcion`, `NotificacionRecepcion` y su repositorio como integración pendiente de transporte del CU29.
+
+Ya resuelto y alineado con el diagrama actual (queda documentado por si se compara contra una versión más vieja de este README):
+
+- La jerarquía `Estado` quedó separada en tres clases abstractas independientes y sin relación de herencia entre ellas — `EstadoBolsin`, `EstadoRemito`, `EstadoDocumentacion` —, cada una con sus propios métodos pertinentes, sin referencias transitorias hacia Bolsín/Remito/Documentación ni reconstrucción al cargar desde JPA.
+- `Bolsin`, `Remito` y `Documentacion` exponen un único `setEstado(estado)` (se eliminó el `changeState` duplicado de V3, que no tenía ningún llamador).
+- Los estados concretos crean las instancias destino (`crearEstado` en `Enviado`, `crearEstadoDoc` en `EnBolsinEnviadoDoc`) y los cambios de estado con el empleado responsable (`crearCambioEstadoBolsin`, `crearCambioEstadoDocumentacion`), y cierran el cambio vigente con un método propio (`cambiarEstadoBolsin`, `cambiarEstadoDoc`, `cambiarEstadoDocumentacion`) que itera el arreglo de historial recibido por parámetro. El remito no tiene un `crearEstadoRem` separado: el estado destino se instancia directo en `recibirYAceptar`/`recibirYAceptarParcialmente`, igual que en el diagrama.
+- `Bolsin.agregarCambioEstado` y `Documentacion.agregarCambioEstado` existen tal como los lista el diagrama.
 
 ```mermaid
 classDiagram
@@ -145,21 +152,26 @@ classDiagram
     Remito "1" *-- "1..*" DetalleRemito
     DetalleRemito --> Documentacion
     Documentacion "1" *-- "1..*" CambioEstadoDocumentacion
-    CambioEstadoBolsin --> Estado
-    CambioEstadoDocumentacion --> Estado
+    CambioEstadoBolsin --> EstadoBolsin
+    CambioEstadoDocumentacion --> EstadoDocumentacion
     CambioEstadoBolsin --> Empleado : responsable
     CambioEstadoDocumentacion --> Empleado : responsable
-    Remito --> Estado : estado activo
-    Bolsin --> Estado : estado activo
-    Documentacion --> Estado : estado activo
-    Estado ..> Bolsin : contexto transitorio
-    Estado ..> Remito : contexto transitorio
-    Estado ..> Documentacion : contexto transitorio
-    Estado <|-- EnBolsinEnviadoDoc
-    Estado <|-- RecibidaYAceptada
-    Estado <|-- NoRecibida
-    Estado <|-- RecibidaYRechazada
-    Estado <|-- ParaRedirigir
+    Bolsin --> EstadoBolsin : estado activo
+    Remito --> EstadoRemito : estado activo
+    Documentacion --> EstadoDocumentacion : estado activo
+    class DetalleRemito {
+        +opcionRecepcion
+    }
+    EstadoBolsin <|-- Enviado
+    EstadoBolsin <|-- RecibidoEnCMDestino
+    EstadoRemito <|-- EnBolsinEnviadoRemito
+    EstadoRemito <|-- RecibidoYAceptadoParcialRemito
+    EstadoRemito <|-- RecibidoYRechazadoRemito
+    EstadoDocumentacion <|-- EnBolsinEnviadoDoc
+    EstadoDocumentacion <|-- RecibidaYAceptada
+    EstadoDocumentacion <|-- NoRecibida
+    EstadoDocumentacion <|-- RecibidaYRechazada
+    EstadoDocumentacion <|-- ParaRedirigir
     PantallaAdmRecpBolsin --> GestorRecpBolsin
     GestorRecpBolsin --> SolicitudRecepcion
     GestorRecpBolsin --> Bolsin
@@ -174,10 +186,11 @@ sequenceDiagram
     actor EB as Encargado de Bolsines
     participant UI as Interfaz web
     participant G as GestorRecpBolsin
+    participant Det as DetalleRemito
     participant B as Bolsin
     participant BE as Enviado
-    participant R as Remito / EnBolsinEnviadoRemito
-    participant D as DetalleRemito
+    participant R as Remito
+    participant RE as EnBolsinEnviadoRemito
     participant DOC as Documentacion
     participant E as EnBolsinEnviadoDoc
     participant N as GestorNotificarRecepcion
@@ -188,21 +201,29 @@ sequenceDiagram
     UI->>G: tomarConfirmacion(solicitud)
     Note over G,N: Una transacción para recepción y notificación pendiente
     G->>G: Validar empleado, CM, estado, opción y pertenencia de documentos
-    G->>B: recibirYAceptarBolsin(fecha, empleado, opciones)
-    B->>BE: recibirYAceptarBolsin(...)
-    BE->>B: cerrarCambioEstadoActual(fecha)
-    BE->>BE: crearEstado y crearCambioEstadoBolsin con empleado
-    BE->>R: recibir(fecha, empleado, opciones)
-    loop Cada documento
-        R->>D: procesarRecepcion(fecha, empleado, opción individual)
-        D->>DOC: aceptar / denegar / rechazar / redirigir
-        DOC->>E: Delegar operación
-        E->>DOC: cerrarCambioEstadoActual(fecha)
-    E->>E: Crear estado destino y cambio de estado con empleado
-    E->>DOC: setEstado(destino) y agregarCambioEstado(cambio)
+    G->>Det: setOpcionRecepcion(opción individual), por cada documento
+    G->>B: recibirYAceptarBolsin(fecha, empleado)
+    B->>BE: recibirYAceptarBolsin(bolsin, fecha, empleado, remito[], cambioEstadoBolsin[])
+    BE->>BE: cambiarEstadoBolsin(fecha, cambioEstadoBolsin[])
+    BE->>BE: crearEstado() y crearCambioEstadoBolsin(fecha, estado, empleado)
+    loop Por cada remito
+        BE->>R: recibirYAceptar(fecha, empleado)
+        R->>R: ¿Todo el detalle tiene opcionRecepcion = ACEPTAR?
+        R->>RE: recibirYAceptar / recibirYAceptarParcialmente(remito, fecha, empleado, detalle[])
+        RE->>RE: cambiarEstadoDocumentacion(fecha, empleado, detalle[])
+        loop Por cada detalle
+            RE->>Det: aceptar(fecha, empleado)
+            Det->>DOC: aceptar / denegar / rechazar / redirigir, según opcionRecepcion
+            DOC->>E: Delegar operación
+            E->>E: cambiarEstadoDoc(fecha, cambioEstadoDocumentacion[])
+            E->>E: crearEstadoDoc() y crearCambioEstadoDocumentacion(fecha, estado, empleado)
+            E->>DOC: setEstado(destino)
+            E->>DOC: agregarCambioEstado(cambio)
+        end
+        RE->>R: setEstado(aceptado, parcial o rechazado según el estado final de cada documento)
     end
-    R->>R: Asignar estado aceptado o parcial según faltantes
-    BE->>B: setEstado(destino) y agregarCambioEstado(cambio)
+    BE->>B: setEstado(destino)
+    BE->>B: agregarCambioEstado(cambio)
     G->>N: registrarNotificacion(bolsín, fecha)
     N-->>G: Notificación pendiente persistida
     G-->>UI: Resultado y responsables
@@ -220,7 +241,7 @@ Para demostrar el patrón: seguir `Documentacion.aceptar` hasta `EnBolsinEnviado
 
 Las clases de estado del diagrama de Bolsín están presentes: `CreadoBolsin`, `CerradoBolsin`, `Enviado`, `RecibidoEnCMDestino` y `DeBajaBolsin`. Sus IDs son IDs de base de datos asignados al cargar la demo; se muestran en **Ver historial de todos los bolsines** junto al ID del Bolsín y del cambio de estado. No hay IDs numéricos permanentes para clases Java.
 
-La máquina de estados de Remito también contiene `CreadoRemito`, `CanceladoRemito`, `EnBolsinSalienteRemito`, `EnBolsinEnviadoRemito`, `RecibidoYAceptadoRemito` y `RecibidoYAceptadoParcialRemito`.
+La máquina de estados de Remito también contiene `CreadoRemito`, `CanceladoRemito`, `EnBolsinSalienteRemito`, `EnBolsinEnviadoRemito`, `RecibidoYAceptadoRemito`, `RecibidoYAceptadoParcialRemito` y `RecibidoYRechazadoRemito` (este último, para el caso particular en que se rechaza toda la documentación del remito).
 
 ## Transiciones del diagrama de Bolsín
 
