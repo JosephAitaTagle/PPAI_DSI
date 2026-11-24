@@ -19,7 +19,7 @@ public class EnBolsinEnviadoRemito extends EstadoRemito {
     @Override
     public void recibirYAceptar(Remito remito, LocalDateTime fechaActual, Empleado nombre, List<DetalleRemito> detalle) {
         cambiarEstadoDocumentacion(fechaActual, nombre, detalle);
-        remito.setEstado(new RecibidoYAceptadoRemito());
+        remito.setEstado(crearEstadoRem());
     }
 
     @Override
@@ -35,5 +35,9 @@ public class EnBolsinEnviadoRemito extends EstadoRemito {
         for (DetalleRemito d : detalle) {
             d.aceptar(fechaActual, nombre);
         }
+    }
+
+    public EstadoRemito crearEstadoRem() {
+        return new RecibidoYAceptadoRemito();
     }
 }

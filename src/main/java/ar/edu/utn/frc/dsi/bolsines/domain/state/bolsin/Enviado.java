@@ -28,7 +28,7 @@ public class Enviado extends EstadoBolsin {
         cambiarEstadoBolsin(fechaActual, cambioEstadoBolsin);
 
         // 1.3.1.3 -> 1.3.1.4
-        RecibidoEnCMDestino nuevoEstado = crearEstado();
+        EstadoBolsin nuevoEstado = crearEstado();
 
         // 1.3.1.5 -> 1.3.1.6
         CambioEstadoBolsin nuevoCambio = crearCambioEstadoBolsin(fechaActual, nuevoEstado, nombre);
@@ -45,7 +45,7 @@ public class Enviado extends EstadoBolsin {
         bolsin.agregarCambioEstado(nuevoCambio);
     }
 
-    public RecibidoEnCMDestino crearEstado() {
+    public EstadoBolsin crearEstado() {
         return new RecibidoEnCMDestino();
     }
 

@@ -23,7 +23,7 @@ public class EnBolsinEnviadoDoc extends EstadoDocumentacion {
     public void aceptar(Documentacion documentacion, LocalDateTime fechaActual, Empleado nombre,
                          List<CambioEstadoDocumentacion> cambiosEstadoDocumentacion) {
         cambiarEstadoDoc(fechaActual, cambiosEstadoDocumentacion);
-        RecibidaYAceptada nuevoEstado = crearEstadoDoc();
+        EstadoDocumentacion nuevoEstado = crearEstadoDoc();
         CambioEstadoDocumentacion nuevoCambio = crearCambioEstadoDocumentacion(fechaActual, nuevoEstado, nombre);
         documentacion.setEstado(nuevoEstado);
         documentacion.agregarCambioEstado(nuevoCambio);
@@ -62,7 +62,7 @@ public class EnBolsinEnviadoDoc extends EstadoDocumentacion {
         documentacion.agregarCambioEstado(nuevoCambio);
     }
 
-    public RecibidaYAceptada crearEstadoDoc() {
+    public EstadoDocumentacion crearEstadoDoc() {
         return new RecibidaYAceptada();
     }
 
