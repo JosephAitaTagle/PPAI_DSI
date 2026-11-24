@@ -22,4 +22,8 @@ public class Sesion {
 
     public Usuario getUsuario() { return usuario; }
     public boolean esActiva() { return fechaHoraFin == null; }
+    public void finalizar(LocalDateTime fechaHoraFin) {
+        if (!esActiva()) throw new IllegalStateException("La sesión ya está cerrada");
+        this.fechaHoraFin = fechaHoraFin;
+    }
 }

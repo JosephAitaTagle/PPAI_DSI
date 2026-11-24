@@ -25,6 +25,15 @@
         }
         header h1 { margin: 0; font-size: 1.25rem; }
         header span { font-size: 0.85rem; opacity: 0.9; }
+        .header-right { display: flex; align-items: center; gap: 1rem; }
+        .session-context { display: grid; gap: 0.2rem; min-width: 190px; padding-left: 1rem; border-left: 1px solid rgba(255,255,255,0.35); }
+        .session-context span { font-size: 0.78rem; line-height: 1.25; }
+        .session-context strong { color: #bfdbfe; }
+        @media (max-width: 760px) {
+            header { align-items: flex-start; flex-direction: column; gap: 0.85rem; padding: 1rem; }
+            .header-right { width: 100%; justify-content: space-between; flex-wrap: wrap; }
+            .session-context { order: 2; width: 100%; padding: 0.6rem 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,0.35); }
+        }
         .container { max-width: 1050px; margin: 1.5rem auto; padding: 0 1rem; }
         .card {
             background: var(--card); border: 1px solid var(--border);
@@ -70,6 +79,14 @@
             border-radius: 6px; margin-bottom: 0.5rem; cursor: pointer;
         }
         .option-item:hover { background: var(--primary-light); border-color: var(--accent); }
+        .operation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+        .operation-button { width: 100%; min-height: 6rem; padding: 1rem; display: flex; align-items: center; justify-content: center; text-align: center; }
+        .employee-picker { display: grid; gap: 0.45rem; margin-top: 0.45rem; }
+        .employee-picker select { width: 100%; padding: 0.45rem; border: 1px solid var(--border); border-radius: 6px; background: white; }
+        .employee-picker button { justify-self: start; }
+        .btn-switch-employee { justify-self: start; background: var(--accent); font-size: 0.8rem; padding: 0.4rem 0.7rem; }
+        .history-toggle { margin-top: 1rem; }
+        .home-intro { color: #475569; }
         .hidden { display: none; }
         .alert-info { background: #fef3c7; color: var(--warning); padding: 1rem; border-radius: 6px; border: 1px solid #fcd34d; }
         .alert-success { background: var(--success-bg); color: var(--success); padding: 1rem; border-radius: 6px; border: 1px solid #86efac; }
@@ -79,32 +96,54 @@
 
 <header>
     <div>
-        <h1>Sistema de Gestión de Bolsines — CU 28: Registrar Recepción de Bolsín</h1>
+        <h1>Sistema de Gestión de Bolsines</h1>
         <span>UTN FRC · Diseño de Sistemas de Información · Grupo 8 (3K2)</span>
     </div>
-    <button class="btn-reset" onclick="resetDemo()">Reiniciar BD Demo</button>
+    <div class="header-right">
+        <div class="session-context" aria-label="Sesión actual">
+            <span><strong>Empleado:</strong> <span id="header-empleado">Cargando...</span></span>
+            <span><strong>Comisión Médica:</strong> <span id="header-cm">Cargando...</span></span>
+            <button type="button" class="btn-switch-employee" onclick="mostrarSelectorEmpleado()">Cambiar empleado</button>
+            <div id="panel-selector-empleado" class="employee-picker hidden">
+                <label for="selector-empleado">Perfil:</label>
+                <select id="selector-empleado"></select>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                    <button type="button" onclick="aplicarCambioEmpleado()">Aplicar</button>
+                    <button type="button" class="btn-cancel" onclick="cancelarCambioEmpleado()">Cancelar</button>
+                </div>
+            </div>
+        </div>
+        <button class="btn-reset" onclick="resetDemo()">Reiniciar BD Demo</button>
+    </div>
 </header>
 
 <div class="container">
-    <div class="card" id="panel-contexto">
-        <h2>1. Comisión Médica Destino (Empleado Logueado)</h2>
-        <div id="info-cm">Cargando datos de sesión...</div>
+    <div class="card" id="panel-inicio">
+        <h2>Operaciones sobre bolsines</h2>
+        <p class="home-intro">Seleccione la operación que desea realizar.</p>
+        <p id="inicio-contexto">Cargando bolsines pendientes...</p>
+        <div class="operation-grid">
+            <button class="operation-button" type="button" onclick="iniciarCU28()">Registrar recepción de bolsín</button>
+            <button class="operation-button" type="button" onclick="mostrarOperacionPendiente('Preparar envío de bolsín')">Preparar envío de bolsín</button>
+            <button class="operation-button" type="button" onclick="mostrarOperacionPendiente('Consultar bolsines')">Consultar bolsines</button>
+            <button class="operation-button" type="button" onclick="mostrarOperacionPendiente('Administrar bolsines')">Administrar bolsines</button>
+        </div>
     </div>
 
-    <div class="card" id="panel-bolsines">
-        <h2>2. Bolsines en Estado "Enviado" pendientes de recepción</h2>
+    <div class="card hidden" id="panel-bolsines">
+        <h2>Bolsines en Estado "Enviado" pendientes de recepción</h2>
         <form onsubmit="event.preventDefault(); cargarListado();" style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <label>Precinto <input id="filtro-precinto" type="search"></label>
             <label>CM origen <input id="filtro-origen" type="search"></label>
             <button type="submit">Buscar</button>
         </form>
         <div id="lista-bolsines"></div>
-        <button type="button" onclick="cargarHistorial()">Ver historial de todos los bolsines</button>
+        <button type="button" class="history-toggle" id="boton-historial" aria-expanded="false" onclick="alternarHistorial()">Ver historial de todos los bolsines</button>
         <div id="historial-bolsines" class="hidden" style="margin-top:1rem"></div>
     </div>
 
     <div class="card hidden" id="panel-detalle">
-        <h2>3. Contenido del Bolsín Seleccionado y Acción de Recepción</h2>
+        <h2>Contenido del Bolsín Seleccionado y Acción de Recepción</h2>
         <div id="detalle-contenido"></div>
 
         <h3 style="font-size: 1rem; margin-top: 1.25rem;">Seleccione el resultado de la verificación:</h3>
@@ -118,7 +157,7 @@
     </div>
 
     <div class="card hidden" id="panel-confirmacion">
-        <h2>4. Confirmar Registro de Recepción</h2>
+        <h2>Confirmar Registro de Recepción</h2>
         <p id="texto-confirmacion" style="font-weight: 500;"></p>
         <div style="display: flex; gap: 0.75rem;">
             <button class="btn-confirm" onclick="confirmarRecepcion()">Confirmar Recepción</button>
@@ -127,10 +166,11 @@
     </div>
 
     <div class="card hidden" id="panel-resultado">
-        <h2>5. Resultado de Ejecución y Trazabilidad de Estados (Patrón State)</h2>
+        <h2>Resultado de Ejecución y Trazabilidad de Estados (Patrón State)</h2>
         <div id="resultado-contenido"></div>
-        <div style="margin-top: 1rem;">
-            <button onclick="iniciarCU28()">Registrar otro bolsín</button>
+        <div style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button onclick="mostrarInicio()">Volver a Inicio</button>
+            <button type="button" onclick="iniciarCU28()">Registrar recepción de otro bolsín</button>
         </div>
     </div>
 </div>
@@ -183,8 +223,61 @@
 
     function mostrarError(error) { alert(error.message); }
 
+    function actualizarContexto(data) {
+        document.getElementById('header-empleado').textContent = data.empleado;
+        document.getElementById('header-cm').textContent = data.nombreCM;
+    }
+
+    function mostrarOperacionPendiente(nombre) {
+        alert(`La operación “${nombre}” todavía no está implementada.`);
+    }
+
+    async function mostrarSelectorEmpleado() {
+        try {
+            const data = await api('empleados-demo');
+            document.getElementById('selector-empleado').innerHTML = data.empleados.map(e =>
+                `<option value="${e.id}" ${e.id === data.empleadoActualId ? 'selected' : ''}>${escapar(e.nombre)} — ${escapar(e.comisionMedica)}</option>`
+            ).join('');
+            document.getElementById('panel-selector-empleado').classList.remove('hidden');
+        } catch (error) { mostrarError(error); }
+    }
+
+    async function aplicarCambioEmpleado() {
+        const empleadoId = document.getElementById('selector-empleado').value;
+        if (!empleadoId) return;
+        try {
+            const data = await api(`cambiar-empleado/${empleadoId}`, {});
+            document.getElementById('header-empleado').textContent = data.empleado;
+            document.getElementById('header-cm').textContent = data.nombreCM;
+            document.getElementById('panel-selector-empleado').classList.add('hidden');
+            document.getElementById('filtro-precinto').value = '';
+            document.getElementById('filtro-origen').value = '';
+            await mostrarInicio();
+        } catch (error) { mostrarError(error); }
+    }
+
+    function cancelarCambioEmpleado() {
+        document.getElementById('panel-selector-empleado').classList.add('hidden');
+    }
+
+    async function mostrarInicio() {
+        cancelarOperacion();
+        document.getElementById('panel-selector-empleado').classList.add('hidden');
+        document.getElementById('panel-inicio').classList.remove('hidden');
+        document.getElementById('panel-bolsines').classList.add('hidden');
+        document.getElementById('panel-resultado').classList.add('hidden');
+        try {
+            const data = await api('iniciar');
+            actualizarContexto(data);
+            document.getElementById('inicio-contexto').textContent = `Bolsines pendientes de recepción: ${data.bolsines.length}`;
+        } catch (error) { mostrarError(error); }
+    }
+
     async function iniciarCU28() {
         cancelarOperacion();
+        document.getElementById('panel-selector-empleado').classList.add('hidden');
+        document.getElementById('panel-inicio').classList.add('hidden');
+        document.getElementById('panel-bolsines').classList.remove('hidden');
         document.getElementById('panel-resultado').classList.add('hidden');
         await cargarListado();
     }
@@ -194,7 +287,7 @@
             const filtros = new URLSearchParams({precinto: document.getElementById('filtro-precinto').value,
                 origen: document.getElementById('filtro-origen').value});
             const data = await api('iniciar?' + filtros);
-            document.getElementById('info-cm').textContent = `Operador: ${data.empleado} | Comisión Médica: ${data.nombreCM}`;
+            actualizarContexto(data);
             const contenedor = document.getElementById('lista-bolsines');
             if (!data.bolsines.length) {
                 contenedor.innerHTML = '<div class="alert-info">No se encontraron bolsines enviados para esta CM con los filtros indicados.</div>';
@@ -220,7 +313,20 @@
                 ${b.pasos.map(p => `<tr><td>${p.cambioEstadoId}</td><td>${p.estadoId}</td><td>${escapar(p.claseEstado)}</td><td>${badgeEstado(p.estado)}</td><td>${escapar(p.inicio)}</td><td>${escapar(p.fin)}</td><td>${escapar(p.responsable)}</td></tr>`).join('')}
                 </tbody></table></div>`).join('');
             contenedor.classList.remove('hidden');
+            document.getElementById('boton-historial').textContent = 'Ocultar historial de todos los bolsines';
+            document.getElementById('boton-historial').setAttribute('aria-expanded', 'true');
         } catch (error) { mostrarError(error); }
+    }
+
+    async function alternarHistorial() {
+        const contenedor = document.getElementById('historial-bolsines');
+        if (contenedor.classList.contains('hidden')) {
+            await cargarHistorial();
+            return;
+        }
+        contenedor.classList.add('hidden');
+        document.getElementById('boton-historial').textContent = 'Ver historial de todos los bolsines';
+        document.getElementById('boton-historial').setAttribute('aria-expanded', 'false');
     }
 
     async function seleccionarBolsin(id) {
@@ -334,11 +440,11 @@
     async function resetDemo() {
         try {
             await api('reset-demo', {});
-            await iniciarCU28();
+            await mostrarInicio();
         } catch (error) { mostrarError(error); }
     }
 
-    window.onload = iniciarCU28;
+    window.onload = mostrarInicio;
 </script>
 </body>
 </html>

@@ -26,6 +26,16 @@ public class PantallaAdmRecpBolsin {
         return gestor.selOpcRegRecpBolsin(precinto, origen);
     }
 
+    @GetMapping("/empleados-demo")
+    public Map<String, Object> empleadosDemo() {
+        return gestor.perfilesEmpleadosDemo();
+    }
+
+    @PostMapping("/cambiar-empleado/{empleadoId}")
+    public Map<String, Object> cambiarEmpleadoDemo(@PathVariable Long empleadoId) {
+        return gestor.cambiarEmpleadoDemo(empleadoId);
+    }
+
     @GetMapping("/historial")
     public Map<String, Object> historialBolsines() {
         return Map.of("bolsines", gestor.historialBolsines());

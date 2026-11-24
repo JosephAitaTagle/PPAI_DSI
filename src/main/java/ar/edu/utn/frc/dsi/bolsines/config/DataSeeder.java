@@ -60,6 +60,9 @@ public class DataSeeder implements ApplicationRunner {
                 + "WHERE documentacion_id = documentacion.id AND fecha_hora_fin IS NULL) WHERE estado_id IS NULL").executeUpdate();
         if (bolsinRepo.count() == 0) {
             cargarDatosIniciales();
+        } else {
+            agregarEmpleadosCompanerosDemo();
+            agregarRemitosYDocumentacionPendienteRioCuarto();
         }
     }
 
@@ -90,6 +93,7 @@ public class DataSeeder implements ApplicationRunner {
         Empleado emp = new Empleado("Aita Tagle", "José", "joseaita96@gmail.com", user, cmCordoba);
         empleadoRepo.save(emp);
         sesionRepo.save(new Sesion(LocalDateTime.now().minusHours(1), user));
+        agregarEmpleadosCompanerosDemo();
 
         TipoDocumentacion tipoExp = new TipoDocumentacion("Expediente Médico", "Legajo médico laboral SRT");
         TipoDocumentacion tipoDict = new TipoDocumentacion("Dictamen Comisión", "Resolución médica firmada");
@@ -185,6 +189,59 @@ public class DataSeeder implements ApplicationRunner {
         }
 
         bolsinRepo.saveAll(bolsinesDemo);
+        agregarRemitosYDocumentacionPendienteRioCuarto();
+    }
+
+    private void agregarEmpleadosCompanerosDemo() {
+        asegurarEmpleadoDemo("juanbcismondi", "Cismondi", "Juan Bautista", "juanbcismondi@gmail.com", "CM05");
+        asegurarEmpleadoDemo("miliflores621", "Flores", "Milagros Estefania", "miliflores621@gmail.com", "CM07");
+        asegurarEmpleadoDemo("laportaa626", "La Porta", "Alvaro", "laportaa626@gmail.com", "CM07");
+        asegurarEmpleadoDemo("giulianomaldonadorampulla", "Maldonado", "Giuliano", "giulianomaldonadorampulla@gmail.com", "CM05");
+    }
+
+    private void asegurarEmpleadoDemo(String usuario, String apellido, String nombre, String email, String codigoCM) {
+        Long existentes = em.createQuery("SELECT COUNT(e) FROM Empleado e WHERE e.email = :email", Long.class)
+                .setParameter("email", email)
+                .getSingleResult();
+        if (existentes > 0) return;
+
+        ComisionMedica comision = em.createQuery("SELECT c FROM ComisionMedica c WHERE c.codigo = :codigo", ComisionMedica.class)
+                .setParameter("codigo", codigoCM)
+                .getSingleResult();
+        Usuario nuevoUsuario = new Usuario(usuario, "demo");
+        em.persist(nuevoUsuario);
+        empleadoRepo.save(new Empleado(apellido, nombre, email, nuevoUsuario, comision));
+    }
+
+    private void agregarRemitosYDocumentacionPendienteRioCuarto() {
+        List<TipoDocumentacion> tipos = em.createQuery("SELECT t FROM TipoDocumentacion t ORDER BY t.id", TipoDocumentacion.class)
+                .getResultList();
+        if (tipos.isEmpty()) return;
+        TipoDocumentacion tipoUno = tipos.get(0);
+        TipoDocumentacion tipoDos = tipos.get(tipos.size() > 1 ? 1 : 0);
+
+        for (Bolsin bolsin : bolsinRepo.findAll()) {
+            if (!"CM07".equals(bolsin.getCMDestino().getCodigo()) || !bolsin.sosEstadoEnviado()) continue;
+            if (bolsin.getRemitos().isEmpty()) {
+                bolsin.getRemitos().add(new Remito(bolsin.getFecha(), 7000 + bolsin.getNumeroBolsin()));
+            }
+
+            for (int indiceRemito = 0; indiceRemito < bolsin.getRemitos().size(); indiceRemito++) {
+                Remito remito = bolsin.getRemitos().get(indiceRemito);
+                while (remito.getDetalleRemito().size() < 2) {
+                    int indiceDocumento = remito.getDetalleRemito().size();
+                    TipoDocumentacion tipo = indiceDocumento == 0 ? tipoUno : tipoDos;
+                    int numeroDocumento = 30000 + bolsin.getNumeroBolsin() * 10 + indiceRemito * 2 + indiceDocumento;
+                    String asunto = "Documentación de prueba " + (indiceDocumento + 1)
+                            + " - Bolsín " + bolsin.getNumeroBolsin();
+                    LocalDate fechaPase = bolsin.getFecha().minusDays(1);
+                    LocalDateTime fechaInicio = bolsin.getFecha().atStartOfDay();
+                    Documentacion documentacion = new Documentacion(asunto, fechaPase, numeroDocumento, tipo, fechaInicio);
+                    String area = indiceDocumento == 0 ? "Mesa de Entradas" : "Archivo Médico";
+                    remito.getDetalleRemito().add(new DetalleRemito(area, documentacion));
+                }
+            }
+        }
     }
 
     private void cargarSecuenciaEnviado(Bolsin bolsin, LocalDateTime inicio, Empleado empleado) {

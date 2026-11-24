@@ -36,6 +36,35 @@ public class GestorRecpBolsin {
                 "esCMC", cm.isEsCMC(), "bolsines", pendientes);
     }
 
+    public Map<String, Object> perfilesEmpleadosDemo() {
+        Empleado actual = buscarEmpleado();
+        List<Map<String, Object>> perfiles = empleados.findAll().stream()
+                .sorted(Comparator.comparing(Empleado::getNombreCompleto))
+                .map(e -> Map.<String, Object>of("id", e.getId(), "nombre", e.getNombreCompleto(),
+                        "comisionMedica", e.obtenerCM().getNombre()))
+                .toList();
+        return Map.of("empleadoActualId", actual.getId(), "empleados", perfiles);
+    }
+
+    @Transactional
+    public Map<String, Object> cambiarEmpleadoDemo(Long empleadoId) {
+        if (empleadoId == null) throw new IllegalArgumentException("Seleccione un empleado");
+        Empleado nuevoEmpleado = empleados.findById(empleadoId)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el empleado seleccionado"));
+        List<Sesion> activas = sesiones.findAll().stream().filter(Sesion::esActiva).toList();
+        if (activas.size() != 1) throw new IllegalStateException("Debe existir una única sesión activa de demostración");
+
+        LocalDateTime ahora = LocalDateTime.now();
+        Sesion sesionActual = activas.get(0);
+        if (!sesionActual.getUsuario().getId().equals(nuevoEmpleado.getUsuario().getId())) {
+            sesionActual.finalizar(ahora);
+            sesiones.save(sesionActual);
+            sesiones.save(new Sesion(ahora, nuevoEmpleado.getUsuario()));
+        }
+        return Map.of("empleadoId", nuevoEmpleado.getId(), "empleado", nuevoEmpleado.getNombreCompleto(),
+                "nombreCM", nuevoEmpleado.obtenerCM().getNombre());
+    }
+
     public List<Map<String, Object>> historialBolsines() {
         return bolsines.findAll().stream()
                 .sorted(Comparator.comparing(Bolsin::getId))

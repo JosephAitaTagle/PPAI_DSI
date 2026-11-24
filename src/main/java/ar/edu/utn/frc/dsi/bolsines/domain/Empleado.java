@@ -36,4 +36,5 @@ public class Empleado {
 
     public Long getId() { return id; }
     public String getNombreCompleto() { return apellido + ", " + nombre; }
+    public Usuario getUsuario() { return usuario; }
 }
