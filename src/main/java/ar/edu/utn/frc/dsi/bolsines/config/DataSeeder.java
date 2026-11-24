@@ -19,7 +19,7 @@ import ar.edu.utn.frc.dsi.bolsines.domain.Remito;
 import ar.edu.utn.frc.dsi.bolsines.domain.Sesion;
 import ar.edu.utn.frc.dsi.bolsines.domain.TipoDocumentacion;
 import ar.edu.utn.frc.dsi.bolsines.domain.Usuario;
-import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.EstadoBolsin;
 import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.CerradoBolsin;
 import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.CreadoBolsin;
 import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.DeBajaBolsin;
@@ -137,20 +137,20 @@ public class DataSeeder implements ApplicationRunner {
             Bolsin extra = new Bolsin(String.format("PRC-2026-%04d", 9100 + i), fecha,
                     1100 + i, 1.2 + (i * 0.1), i % 2 == 0 ? cmVillaMaria : cmCordoba,
                     cmRioCuarto, inicio);
-            List<Estado> estados = new ArrayList<>();
+            List<EstadoBolsin> estados = new ArrayList<>();
             List<LocalDateTime> fechas = new ArrayList<>();
-            estados.add(new CreadoBolsin(extra));
+            estados.add(new CreadoBolsin());
             fechas.add(inicio);
-            estados.add(new CerradoBolsin(extra));
+            estados.add(new CerradoBolsin());
             fechas.add(inicio.plusHours(1));
             if (i >= 14) {
-                estados.add(new DeBajaBolsin(extra));
+                estados.add(new DeBajaBolsin());
                 fechas.add(inicio.plusHours(2));
             } else {
-                estados.add(new Enviado(extra));
+                estados.add(new Enviado());
                 fechas.add(inicio.plusHours(2));
                 if (i >= 11) {
-                    estados.add(new RecibidoEnCMDestino(extra));
+                    estados.add(new RecibidoEnCMDestino());
                     fechas.add(inicio.plusHours(5));
                 }
             }
@@ -192,18 +192,18 @@ public class DataSeeder implements ApplicationRunner {
 
     private void cargarSecuenciaEnviado(Bolsin bolsin, LocalDateTime inicio, Empleado empleado) {
         bolsin.cargarHistorialDemo(List.of(
-                new CreadoBolsin(bolsin),
-                new CerradoBolsin(bolsin),
-                new Enviado(bolsin)),
+                new CreadoBolsin(),
+                new CerradoBolsin(),
+                new Enviado()),
                 List.of(inicio, inicio.plusHours(1), inicio.plusHours(2)), empleado);
     }
 
     private void cargarSecuenciaRecibido(Bolsin bolsin, LocalDateTime inicio, Empleado empleado) {
         bolsin.cargarHistorialDemo(List.of(
-                new CreadoBolsin(bolsin),
-                new CerradoBolsin(bolsin),
-                new Enviado(bolsin),
-                new RecibidoEnCMDestino(bolsin)),
+                new CreadoBolsin(),
+                new CerradoBolsin(),
+                new Enviado(),
+                new RecibidoEnCMDestino()),
                 List.of(inicio, inicio.plusHours(1), inicio.plusHours(2), inicio.plusHours(5)), empleado);
     }
 }

@@ -2,20 +2,17 @@ package ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin;
 
 import ar.edu.utn.frc.dsi.bolsines.domain.*;
 import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.bolsin.EstadoBolsin;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 import java.time.LocalDateTime;
 
 @Entity
 @DiscriminatorValue("BOLSIN_ENVIADO")
-public class Enviado extends Estado {
+public class Enviado extends EstadoBolsin {
 
     public Enviado() {
-        super("Enviado", "Bolsín despachado hacia la Comisión Médica destino", "Bolsin");
-    }
-
-    public Enviado(Bolsin bolsin) {
-        super("Enviado", "Bolsín despachado hacia la Comisión Médica destino", "Bolsin", bolsin);
+        super("Enviado", "Bolsín despachado hacia la Comisión Médica destino");
     }
 
     @Override
@@ -23,11 +20,13 @@ public class Enviado extends Estado {
         return true;
     }
 
-    // Secuencia 1.3.1 -> 1.3.1.9 sobre la referencia inversa this.bolsin
+    // Secuencia 1.3.1 -> 1.3.1.9; el contexto llega explícitamente desde Bolsin.
     @Override
-    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
+    public void recibirYAceptarBolsin(Bolsin bolsin, LocalDateTime fechaActual, Empleado nombre,
+                                      Remito[] remitos, CambioEstadoBolsin[] cambiosEstado,
+                                      java.util.Map<Long, OpcionRecepcion> opciones) {
         // 1.3.1.1 -> 1.3.1.2: Cierra CambioEstadoBolsin actual en el contexto
-        cambiarEstadoBolsin(fechaActual, this);
+        cambiarEstadoBolsin(cambiosEstado, fechaActual);
 
         // 1.3.1.3 -> 1.3.1.4: crearEstado(): RecibidoEnCMDestino
         RecibidoEnCMDestino nuevoEstado = crearEstado();
@@ -36,23 +35,26 @@ public class Enviado extends Estado {
         CambioEstadoBolsin nuevoCambio = crearCambioEstadoBolsin(fechaActual, nuevoEstado, nombre);
 
         // 1.3.1.7: loop [Mientras haya remitos] -> recibir()
-        for (Remito remito : this.bolsin.getRemitos()) {
-            remito.recibir(fechaActual, nombre, opciones);
+        for (Remito remito : remitos) {
+            remito.recibirYAceptar(fechaActual, nombre, opciones);
         }
 
         // 1.3.1.8: setEstado(estado: RecibidoEnCMDestino)
-        this.bolsin.setEstado(nuevoEstado);
+        bolsin.setEstado(nuevoEstado);
 
         // 1.3.1.9: agregarCambioEstado(cambioEstado: CambioEstadoBolsin)
-        this.bolsin.agregarCambioEstado(nuevoCambio);
+        bolsin.agregarCambioEstado(nuevoCambio);
     }
 
-    public void cambiarEstadoBolsin(LocalDateTime fechaActual, Estado estado) {
-        this.bolsin.cerrarCambioEstadoActual(fechaActual);
+    public void cambiarEstadoBolsin(CambioEstadoBolsin[] cambiosEstado, LocalDateTime fechaActual) {
+        java.util.Arrays.stream(cambiosEstado)
+                .filter(CambioEstadoBolsin::sosActual)
+                .findFirst()
+                .ifPresent(actual -> actual.setFechaHoraFin(fechaActual));
     }
 
     public RecibidoEnCMDestino crearEstado() {
-        return new RecibidoEnCMDestino(this.bolsin);
+        return new RecibidoEnCMDestino();
     }
 
     public CambioEstadoBolsin crearCambioEstadoBolsin(LocalDateTime fechaActual, Estado estadoActual, Empleado empleado) {

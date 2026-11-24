@@ -1,6 +1,6 @@
 package ar.edu.utn.frc.dsi.bolsines.domain;
 
-import ar.edu.utn.frc.dsi.bolsines.domain.state.Estado;
+import ar.edu.utn.frc.dsi.bolsines.domain.state.doc.EstadoDocumentacion;
 import ar.edu.utn.frc.dsi.bolsines.domain.state.doc.EnBolsinEnviadoDoc;
 import jakarta.persistence.*;
 import java.time.LocalDate;
@@ -25,7 +25,7 @@ public class Documentacion {
 
     // Referencia directa al estado activo (field state: State)
     @ManyToOne(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
-    private Estado estado;
+    private EstadoDocumentacion estado;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "documentacion_id")
@@ -41,53 +41,43 @@ public class Documentacion {
         this.numero = numero;
         this.tipoDocumentacion = tipoDocumentacion;
 
-        Estado estadoInicial = new EnBolsinEnviadoDoc(this);
+        EstadoDocumentacion estadoInicial = new EnBolsinEnviadoDoc();
         this.estado = estadoInicial;
         this.cambioEstadoDocumentacion.add(new CambioEstadoDocumentacion(fechaInicio, estadoInicial));
     }
 
-    @PostLoad
-    private void reconstruirReferenciaInversa() {
-        if (this.estado != null) {
-            this.estado.vincularDocumentacion(this);
-        }
-    }
-
     // Equivalente a changeState(state: State) / setEstado(estado: Estado)
-    public void setEstado(Estado nuevoEstado) {
+    public void setEstado(EstadoDocumentacion nuevoEstado) {
         this.estado = nuevoEstado;
-        if (this.estado != null) {
-            this.estado.vincularDocumentacion(this);
-        }
     }
 
-    public void changeState(Estado nuevoEstado) {
+    public void changeState(EstadoDocumentacion nuevoEstado) {
         setEstado(nuevoEstado);
     }
 
     // Delegación pura al estado activo según la Máquina de Estados de Documentación
     public void aceptar(LocalDateTime fechaActual, Empleado nombre) {
-        Estado actual = getEstadoActual();
-        actual.vincularDocumentacion(this);
-        actual.aceptar(fechaActual, nombre);
+        EstadoDocumentacion actual = getEstadoActual();
+        actual.aceptar(this, fechaActual, nombre,
+                this.cambioEstadoDocumentacion.toArray(CambioEstadoDocumentacion[]::new));
     }
 
     public void denegar(LocalDateTime fechaActual, Empleado nombre) {
-        Estado actual = getEstadoActual();
-        actual.vincularDocumentacion(this);
-        actual.denegar(fechaActual, nombre);
+        EstadoDocumentacion actual = getEstadoActual();
+        actual.denegar(this, fechaActual, nombre,
+                this.cambioEstadoDocumentacion.toArray(CambioEstadoDocumentacion[]::new));
     }
 
     public void rechazar(LocalDateTime fechaActual, Empleado nombre) {
-        Estado actual = getEstadoActual();
-        actual.vincularDocumentacion(this);
-        actual.rechazar(fechaActual, nombre);
+        EstadoDocumentacion actual = getEstadoActual();
+        actual.rechazar(this, fechaActual, nombre,
+                this.cambioEstadoDocumentacion.toArray(CambioEstadoDocumentacion[]::new));
     }
 
     public void redirigir(LocalDateTime fechaActual, Empleado nombre) {
-        Estado actual = getEstadoActual();
-        actual.vincularDocumentacion(this);
-        actual.redirigir(fechaActual, nombre);
+        EstadoDocumentacion actual = getEstadoActual();
+        actual.redirigir(this, fechaActual, nombre,
+                this.cambioEstadoDocumentacion.toArray(CambioEstadoDocumentacion[]::new));
     }
 
     // Métodos de servicio del contexto invocados por los estados concretos
@@ -102,7 +92,7 @@ public class Documentacion {
         this.cambioEstadoDocumentacion.add(cambioEstado);
     }
 
-    public Estado getEstadoActual() {
+    public EstadoDocumentacion getEstadoActual() {
         if (this.estado == null) throw new IllegalStateException("Falta el estado activo de la entidad");
         return this.estado;
     }

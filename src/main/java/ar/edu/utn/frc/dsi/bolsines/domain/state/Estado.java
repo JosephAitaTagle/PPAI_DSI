@@ -18,16 +18,6 @@ public abstract class Estado {
     private String descripcion;
     private String ambito;
 
-    // Referencias inversas protegidas hacia los 3 contextos (Bolsin, Remito, Documentacion)
-    @Transient
-    protected Bolsin bolsin;
-
-    @Transient
-    protected Remito remito;
-
-    @Transient
-    protected Documentacion documentacion;
-
     protected Estado() {}
 
     protected Estado(String nombre, String descripcion, String ambito) {
@@ -35,26 +25,6 @@ public abstract class Estado {
         this.descripcion = descripcion;
         this.ambito = ambito;
     }
-
-    protected Estado(String nombre, String descripcion, String ambito, Bolsin bolsin) {
-        this(nombre, descripcion, ambito);
-        this.bolsin = bolsin;
-    }
-
-    protected Estado(String nombre, String descripcion, String ambito, Remito remito) {
-        this(nombre, descripcion, ambito);
-        this.remito = remito;
-    }
-
-    protected Estado(String nombre, String descripcion, String ambito, Documentacion documentacion) {
-        this(nombre, descripcion, ambito);
-        this.documentacion = documentacion;
-    }
-
-    // Vinculación de referencia inversa (usada en setEstado / changeState / @PostLoad)
-    public void vincularBolsin(Bolsin bolsin) { this.bolsin = bolsin; }
-    public void vincularRemito(Remito remito) { this.remito = remito; }
-    public void vincularDocumentacion(Documentacion documentacion) { this.documentacion = documentacion; }
 
     // Consultas polimórficas de estado y ámbito (Diagrama de Clases Rediseño v2.1)
     public boolean esEnviado() { return false; }
@@ -70,36 +40,6 @@ public abstract class Estado {
     public boolean esAmbitoBolsin() { return "Bolsin".equalsIgnoreCase(this.ambito); }
     public boolean esAmbitoRemito() { return "Remito".equalsIgnoreCase(this.ambito); }
     public boolean esAmbitoDocumentacion() { return "Documentacion".equalsIgnoreCase(this.ambito); }
-
-    // Operaciones del ciclo de vida del CU 28 (operan sobre la referencia inversa)
-    public void recibirYAceptarBolsin(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
-        throw new UnsupportedOperationException("Transición recibirYAceptarBolsin no permitida en estado: " + this.nombre);
-    }
-
-    public void recibirYAceptar(LocalDateTime fechaActual, Empleado nombre, java.util.Map<Long, OpcionRecepcion> opciones) {
-        throw new UnsupportedOperationException("Transición recibirYAceptar no permitida en estado: " + this.nombre);
-    }
-
-    public void recibirYAceptarParcialmente(LocalDateTime fechaActual, Empleado nombre,
-                                             java.util.Map<Long, OpcionRecepcion> opciones) {
-        throw new UnsupportedOperationException("Transición recibirYAceptarParcialmente no permitida en estado: " + this.nombre);
-    }
-
-    public void aceptar(LocalDateTime fechaActual, Empleado nombre) {
-        throw new UnsupportedOperationException("Transición aceptar no permitida en estado: " + this.nombre);
-    }
-
-    public void denegar(LocalDateTime fechaActual, Empleado nombre) {
-        throw new UnsupportedOperationException("Transición denegar no permitida en estado: " + this.nombre);
-    }
-
-    public void rechazar(LocalDateTime fechaActual, Empleado nombre) {
-        throw new UnsupportedOperationException("Transición rechazar no permitida en estado: " + this.nombre);
-    }
-
-    public void redirigir(LocalDateTime fechaActual, Empleado nombre) {
-        throw new UnsupportedOperationException("Transición redirigir no permitida en estado: " + this.nombre);
-    }
 
     public Long getId() { return id; }
     public String getNombre() { return nombre; }

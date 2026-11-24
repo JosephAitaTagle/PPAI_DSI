@@ -21,9 +21,9 @@ Abrir http://localhost:8080. Se utiliza una única sesión de demostración prec
 5. Para rechazo (A4), marcar solo el documento que no corresponde a la CM. Para redirección (A5), marcar los documentos a distribuir internamente en la CMC.
 6. Mostrar los estados finales y el empleado responsable. Volver o cancelar antes de confirmar no registra cambios (A6 y observación 1).
 
-Los contextos guardan una referencia al estado activo; los estados concretos crean los estados destino y los cambios de historial con su responsable. Las referencias inversas se reconstruyen al cargar las entidades. Las bases anteriores se adaptan al iniciar sin borrar sus datos.
+Los contextos guardan una referencia al estado activo y pasan explicitamente el contexto a las operaciones de transicion; los estados crean los estados destino y los cambios de historial con su responsable. Las bases anteriores se adaptan al iniciar sin borrar sus datos.
 
-El patrón State conserva las referencias inversas y las fábricas de estados de V3. Cada contexto guarda su estado activo y mantiene la trazabilidad en sus cambios de estado; las recepciones nuevas registran el empleado responsable.
+El patron State conserva una referencia al estado activo en cada contexto. Los estados no mantienen referencias inversas: cada operacion recibe el bolsin, remito o documentacion correspondiente como parametro. Las recepciones nuevas registran el empleado responsable.
 
 La selección se mantiene en cada pestaña. El servidor vuelve a validar la solicitud completa al confirmar y no conserva selecciones globales.
 
@@ -65,7 +65,7 @@ Cada clase anotada con `@Entity` se mapea a una tabla. Las asociaciones se expre
 - Cada cambio de estado apunta al `Estado` que describe esa etapa y, opcionalmente, al `Empleado` responsable. Los cambios de recepción nuevos incluyen empleado; los registros antiguos o los estados iniciales pueden no tenerlo.
 - `Empleado` se relaciona uno a uno con `Usuario` y muchos a uno con su `ComisionMedica`. `Sesion` apunta a `Usuario`. Las notificaciones se guardan en `NotificacionRecepcion` con el ID del bolsín, destinatario, asunto, cuerpo, fecha y estado de envío.
 
-`Estado` usa herencia JPA `SINGLE_TABLE`: las instancias concretas de los estados de bolsín, remito y documentación comparten la tabla `estado`, diferenciadas por la columna discriminadora `tipo_estado`. Las referencias desde `Estado` hacia el `Bolsin`, `Remito` o `Documentacion` que lo utiliza son `@Transient` y no generan columnas ni asociaciones persistidas. Los contextos restablecen esas referencias inversas al cargar (`@PostLoad`) y al asignar o usar el estado. Así se conserva la delegación del patrón State sin persistir ciclos de objetos.
+`Estado` usa herencia JPA `SINGLE_TABLE`: las instancias concretas de los estados de bolsin, remito y documentacion comparten la tabla `estado`, diferenciadas por `tipo_estado`. Los estados no guardan referencias hacia `Bolsin`, `Remito` ni `Documentacion`; los contextos pasan explicitamente el objeto que se transiciona, sin referencias inversas ni callbacks de reconstruccion.
 
 ### Estado actual y trazabilidad
 
@@ -97,7 +97,7 @@ Referencias aportadas: ERS v1.2 (reglas de negocio, página 6; CU28, páginas 11
 
 ## Alcance y decisiones
 
-El grupo 8 implementa CU28 y aplica State a Documentación. Se conserva la jerarquía común `Estado` del diagrama, con estados concretos para Bolsín, Remito y Documentación. La integración de V3 (`upstream/main`, commit `da63ebc`) agrega una referencia directa al estado activo y una referencia inversa transitoria desde el estado al contexto. Las entidades delegan las operaciones al estado actual; los estados concretos crean los estados destino y los cambios de estado; el gestor coordina la transacción y valida el contexto de la recepción.
+El grupo 8 implementa CU28 y aplica State a Documentacion. Cada contexto mantiene una referencia directa al estado activo. Los estados no conservan referencias inversas; las entidades pasan el contexto explicitamente a las operaciones del estado. El gestor coordina la transaccion y valida el contexto de la recepcion.
 
 La elección se realiza para el bolsín y se identifican los documentos afectados. Los demás documentos se aceptan. Una recepción registra una de las situaciones enumeradas en el CU28; combinar varias situaciones diferentes en una misma recepción queda fuera de esta interfaz.
 
@@ -118,7 +118,7 @@ Los cambios de estado de Bolsín y Documentación incorporan una referencia `Emp
 
 Las escrituras del bolsín, documentos, remitos y notificación pendiente se ejecutan en la misma transacción. Una transición inválida revierte la recepción completa. `@Version` protege las entidades frente a actualizaciones sobre una versión anterior; SQLite tiene limitaciones para escrituras simultáneas. No se implementa un sistema de autenticación: se usa la única sesión activa precargada para la defensa.
 
-`ddl-auto=update` conserva el historial al reiniciar. Para bases anteriores, Hibernate agrega las columnas faltantes sin borrar tablas; el arranque inicializa las versiones nulas y reconstruye la referencia directa al estado desde el cambio de estado actual. La columna de estado admite nulos durante esa adaptación; las operaciones de dominio exigen un estado activo. Las referencias inversas se restablecen al cargar y antes de delegar cada operación, para soportar las filas de estados compartidas por la versión anterior sin confundir documentos ni bolsines. Esto es una adaptación para el proyecto académico, no un sistema de migraciones para producción.
+`ddl-auto=update` conserva el historial al reiniciar. Para bases anteriores, Hibernate agrega las columnas faltantes sin borrar tablas; el arranque inicializa las versiones nulas y reconstruye la referencia directa al estado desde el cambio de estado actual. La columna de estado admite nulos durante esa adaptacion; las operaciones de dominio exigen un estado activo. Las operaciones pasan el contexto explicitamente al estado activo y no dependen de asociaciones inversas cargadas desde la base. Esto es una adaptacion para el proyecto academico, no un sistema de migraciones para produccion.
 
 ## Integración del CU29
 
@@ -134,7 +134,7 @@ Las escrituras del bolsín, documentos, remitos y notificación pendiente se eje
 - Las operaciones de recepción de Bolsín y Remito reciben `Map<Long, OpcionRecepcion>` para resolver las decisiones individuales.
 - Agregar `esRecibidoYAceptadoParcial(): boolean` a Estado y su redefinición en el estado parcial del remito.
 - Incorporar el atributo `estado: Estado` a Bolsín y Documentación, conservando los historiales. Los contextos exponen `setEstado` y `changeState` como en V3.
-- Incorporar las referencias inversas transitorias de Estado a sus contextos, sus constructores y la revinculación al cargar desde JPA.
+- Eliminar las referencias inversas entre `Estado` y sus contextos; las transiciones reciben explicitamente el contexto como parametro.
 - Los estados concretos crean las instancias destino (`crearEstado`, `crearEstadoRem`, `crearEstadoDoc`) y los cambios de estado con el empleado responsable. Las asociaciones persisten esas instancias por cascada; ya no se consulta un catálogo global para transicionar.
 - Agregar `GestorNotificarRecepcion`, `NotificacionRecepcion` y su repositorio como integración pendiente de transporte del CU29.
 
